@@ -1,0 +1,81 @@
+{
+  "units": "mm",
+  "description": "Test walls — dimensions in mm for clarity. Based on common US sizing.",
+  "walls": [
+    {
+      "wall_id": "wall_01_simple",
+      "label": "Simple Wall - 10ft x 8ft, No Openings",
+      "length": 3048,
+      "height": 2438.4,
+      "thickness": 92.08,
+      "openings": []
+    },
+    {
+      "wall_id": "wall_02_window",
+      "label": "Wall with Window - 12ft x 8ft",
+      "length": 3657.6,
+      "height": 2438.4,
+      "thickness": 92.08,
+      "openings": [
+        {
+          "type": "window",
+          "label": "W1",
+          "x_offset": 1219.2,
+          "width": 914.4,
+          "height": 1219.2,
+          "sill_height": 914.4
+        }
+      ]
+    },
+    {
+      "wall_id": "wall_03_door",
+      "label": "Wall with Door - 15ft x 8ft",
+      "length": 4572,
+      "height": 2438.4,
+      "thickness": 92.08,
+      "openings": [
+        {
+          "type": "door",
+          "label": "D1",
+          "x_offset": 1828.8,
+          "width": 914.4,
+          "height": 2133.6,
+          "sill_height": 0
+        }
+      ]
+    },
+    {
+      "wall_id": "wall_04_complex",
+      "label": "Complex Wall - 20ft x 9ft, 1 Door + 2 Windows",
+      "length": 6096,
+      "height": 2743.2,
+      "thickness": 92.08,
+      "openings": [
+        {
+          "type": "window",
+          "label": "W1",
+          "x_offset": 609.6,
+          "width": 914.4,
+          "height": 1219.2,
+          "sill_height": 914.4
+        },
+        {
+          "type": "door",
+          "label": "D1",
+          "x_offset": 2438.4,
+          "width": 914.4,
+          "height": 2133.6,
+          "sill_height": 0
+        },
+        {
+          "type": "window",
+          "label": "W2",
+          "x_offset": 4267.2,
+          "width": 1500,
+          "height": 1219.2,
+          "sill_height": 914.4
+        }
+      ]
+    }
+  ]
+}

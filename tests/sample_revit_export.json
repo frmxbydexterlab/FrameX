@@ -1,0 +1,88 @@
+{
+  "units": "mm",
+  "description": "Exported from Revit — walls and openings for LGSF framing engine.",
+  "walls": [
+    {
+      "wall_id": "wall_12345",
+      "label": "Wall A - North (ID: 12345)",
+      "length": 6096,
+      "height": 2743.2,
+      "thickness": 92.08,
+      "origin_x": 0,
+      "origin_y": 0,
+      "origin_z": 0,
+      "direction_x": 1,
+      "direction_y": 0,
+      "openings": [
+        {
+          "type": "window",
+          "label": "W1",
+          "x_offset": 1200,
+          "width": 1219.2,
+          "height": 1219.2,
+          "sill_height": 914.4,
+          "is_rough_opening": true
+        }
+      ]
+    },
+    {
+      "wall_id": "wall_12346",
+      "label": "Wall B - East (ID: 12346)",
+      "length": 4572,
+      "height": 2743.2,
+      "thickness": 92.08,
+      "origin_x": 6096,
+      "origin_y": 0,
+      "origin_z": 0,
+      "direction_x": 0,
+      "direction_y": 1,
+      "openings": [
+        {
+          "type": "door",
+          "label": "D1",
+          "x_offset": 1524,
+          "width": 914.4,
+          "height": 2133.6,
+          "sill_height": 0,
+          "is_rough_opening": true
+        }
+      ]
+    },
+    {
+      "wall_id": "wall_12347",
+      "label": "Wall C - South (ID: 12347)",
+      "length": 6096,
+      "height": 2743.2,
+      "thickness": 92.08,
+      "origin_x": 6096,
+      "origin_y": 4572,
+      "origin_z": 0,
+      "direction_x": -1,
+      "direction_y": 0,
+      "openings": []
+    },
+    {
+      "wall_id": "wall_12348",
+      "label": "Wall D - West (ID: 12348)",
+      "length": 4572,
+      "height": 2743.2,
+      "thickness": 92.08,
+      "origin_x": 0,
+      "origin_y": 4572,
+      "origin_z": 0,
+      "direction_x": 0,
+      "direction_y": -1,
+      "openings": [
+        {
+          "type": "window",
+          "label": "W2",
+          "x_offset": 800,
+          "width": 1524,
+          "height": 1371.6,
+          "sill_height": 762,
+          "is_rough_opening": true
+        }
+      ]
+    }
+  ]
+}

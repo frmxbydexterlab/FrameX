@@ -1,0 +1,66 @@
+{
+  "region": "US",
+  "units": "imperial",
+  "description": "US defaults per AISI S240 / SSMA standard practice",
+
+  "stud": {
+    "default_spacing_mm": 609.6,
+    "default_depth_mm": 92.08,
+    "default_flange_mm": 31.75,
+    "default_lip_mm": 9.525,
+    "default_gauge_mm": 0.893,
+    "profile_type": "C_STUD"
+  },
+
+  "track": {
+    "default_depth_mm": 92.08,
+    "default_flange_mm": 31.75,
+    "default_gauge_mm": 0.893,
+    "profile_type": "TRACK"
+  },
+
+  "opening_rules": {
+    "king_studs": true,
+    "trimmer_studs": true,
+    "cripple_studs": true,
+    "header_type": "box_header",
+    "min_header_depth_mm": 152.4,
+    "sill_for_windows": true,
+    "sill_for_doors": false,
+    "king_stud_mode": "full_height"
+  },
+
+  "gaps": {
+    "track_stud_gap_mm": 0.0,
+    "cripple_gap_mm": 0.0,
+    "cripple_connection": "inside_track"
+  },
+
+  "nogging": {
+    "enabled": true,
+    "rows": 1,
+    "position": "mid_height",
+    "profile_type": "C_STUD",
+    "use_stud_depth": true
+  },
+
+  "header_rules": [
+    {"max_width_mm": 1219.2, "header_type": "single"},
+    {"max_width_mm": 9999999, "header_type": "box"}
+  ],
+
+  "king_stud_rules": [
+    {"max_width_mm": 1219.2, "king_type": "single"},
+    {"max_width_mm": 9999999, "king_type": "single_box"}
+  ],
+
+  "available_gauges_mm": [0.893, 1.0922, 1.3716, 1.7272],
+  "available_depths_mm": [92.08, 152.4, 203.2],
+
+  "gauge_labels": {
+    "0.893": "33mil",
+    "1.0922": "43mil",
+    "1.3716": "54mil",
+    "1.7272": "68mil"
+  }
+}

@@ -1,0 +1,43 @@
+# ── Python cache ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# ── Virtual environments ───────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# Dev / test files (not needed in production image)
+tests/
+!tests/My Test Project.wex
+scratch/
+test_output/
+output_no_trimmer/
+geometry_log.txt
+revit_import_error.log
+check_*.py
+gen_demo_layers.py
+main.py
+DESIGN.md
+
+# ── Secrets (NEVER in Docker image) ───────────────────────────────
+firebase-service-account.json
+.env
+*.env.*
+
+# ── Output files (generated at runtime) ───────────────────────────
+output/
+
+# ── Version control ───────────────────────────────────────────────
+.git/
+.gitignore
+
+# ── Editor config ─────────────────────────────────────────────────
+.vscode/
+.idea/
+
+# ── OS files ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

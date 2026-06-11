@@ -1,0 +1,71 @@
+# ──────────────────────────────────────────────────────────────────────────────
+#  Cloud Build — automated CI/CD pipeline
+#
+#  Triggered automatically when you push to the 'main' branch on GitHub.
+#  Connect GitHub → Cloud Build in the Google Cloud Console once, and every
+#  git push to main will:
+#    1. Build the Docker image
+#    2. Push it to Artifact Registry
+#    3. Deploy it to Cloud Run
+#
+#  Manual trigger (from your terminal):
+#    gcloud builds submit --config cloudbuild.yaml .
+# ──────────────────────────────────────────────────────────────────────────────
+
+substitutions:
+  _SERVICE_NAME: framex                              # Cloud Run service name
+  _REGION:       asia-south1                        # Mumbai — closest to India
+  _REPO:         framex-repo                        # Artifact Registry repo name
+
+steps:
+
+  # ── Step 1: Build the Docker image ──────────────────────────────
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Build
+    args:
+      - build
+      - '--tag'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE_NAME}:$SHORT_SHA'
+      - '--tag'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE_NAME}:latest'
+      - '--cache-from'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE_NAME}:latest'
+      - '.'
+
+  # ── Step 2: Push image to Artifact Registry ──────────────────────
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Push
+    args:
+      - push
+      - '--all-tags'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE_NAME}'
+
+  # ── Step 3: Deploy to Cloud Run ──────────────────────────────────
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: Deploy
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - '${_SERVICE_NAME}'
+      - '--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE_NAME}:$SHORT_SHA'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'          # Firebase handles auth, not Cloud Run IAM
+      - '--min-instances=0'                # Scale to zero when idle (saves cost)
+      - '--max-instances=10'               # Hard cap for cost control
+      - '--memory=512Mi'
+      - '--cpu=1'
+      - '--concurrency=80'                 # Requests per instance before scaling
+      - '--timeout=60'                     # Max request time (framing engine is fast)
+      # Secret: service account key mounted as a file
+      - '--set-secrets=/secrets/firebase-service-account.json=firebase-service-account:latest'
+      - '--set-env-vars=GOOGLE_APPLICATION_CREDENTIALS=/secrets/firebase-service-account.json'
+
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE_NAME}:$SHORT_SHA'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE_NAME}:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_MEDIUM    # Faster builds

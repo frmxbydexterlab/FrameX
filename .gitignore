@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Output artifacts
+output/
+output_no_trimmer/
+test_output/
+*.frmx
+geometry_log.txt
+revit_import_error.log
+
+# Firebase / Secrets  ← NEVER commit these
+firebase-service-account*.json
+.env
+*.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

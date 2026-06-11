@@ -1,0 +1,196 @@
+{
+  "units": "mm",
+  "description": "Demo export with compound structure layers \u2014 for testing wall layer visualization",
+  "walls": [
+    {
+      "wall_id": "wall_01_simple",
+      "label": "Simple Wall - 10ft x 8ft, No Openings [Standard]",
+      "length": 3048.0,
+      "height": 2438.4,
+      "thickness": 92.08,
+      "origin_x": 0.0,
+      "origin_y": 0.0,
+      "origin_z": 0.0,
+      "direction_x": 1.0,
+      "direction_y": 0.0,
+      "revit_parameters": {},
+      "layers": [
+        {
+          "function": "Finish1",
+          "function_name": "Finish Layer (Exterior)",
+          "material_name": "Gypsum Wall Board",
+          "thickness_mm": 12.7,
+          "is_structural": false
+        },
+        {
+          "function": "Structure",
+          "function_name": "Structural Core",
+          "material_name": "Metal Stud Framing",
+          "thickness_mm": 92.08,
+          "is_structural": true
+        },
+        {
+          "function": "Finish2",
+          "function_name": "Finish Layer (Interior)",
+          "material_name": "Gypsum Wall Board",
+          "thickness_mm": 12.7,
+          "is_structural": false
+        }
+      ],
+      "openings": []
+    },
+    {
+      "wall_id": "wall_02_window",
+      "label": "Wall with Window - 12ft x 8ft [Insulated]",
+      "length": 3657.6,
+      "height": 2438.4,
+      "thickness": 92.08,
+      "origin_x": 0.0,
+      "origin_y": 0.0,
+      "origin_z": 0.0,
+      "direction_x": 1.0,
+      "direction_y": 0.0,
+      "revit_parameters": {},
+      "layers": [
+        {
+          "function": "Finish1",
+          "function_name": "Finish Layer (Exterior)",
+          "material_name": "Exterior Cladding",
+          "thickness_mm": 12.7,
+          "is_structural": false
+        },
+        {
+          "function": "Substrate",
+          "function_name": "Substrate",
+          "material_name": "OSB Sheathing",
+          "thickness_mm": 11.1,
+          "is_structural": false
+        },
+        {
+          "function": "Insulation",
+          "function_name": "Insulation / Air Layer",
+          "material_name": "Mineral Wool",
+          "thickness_mm": 38.0,
+          "is_structural": false
+        },
+        {
+          "function": "Structure",
+          "function_name": "Structural Core",
+          "material_name": "Metal Stud Framing",
+          "thickness_mm": 92.08,
+          "is_structural": true
+        },
+        {
+          "function": "Membrane",
+          "function_name": "Membrane / Vapour Barrier",
+          "material_name": "Vapour Barrier",
+          "thickness_mm": 0.5,
+          "is_structural": false
+        },
+        {
+          "function": "Finish2",
+          "function_name": "Finish Layer (Interior)",
+          "material_name": "Gypsum Wall Board",
+          "thickness_mm": 12.7,
+          "is_structural": false
+        }
+      ],
+      "openings": []
+    },
+    {
+      "wall_id": "wall_03_door",
+      "label": "Wall with Door - 15ft x 8ft [Standard]",
+      "length": 4572.0,
+      "height": 2438.4,
+      "thickness": 92.08,
+      "origin_x": 0.0,
+      "origin_y": 0.0,
+      "origin_z": 0.0,
+      "direction_x": 1.0,
+      "direction_y": 0.0,
+      "revit_parameters": {},
+      "layers": [
+        {
+          "function": "Finish1",
+          "function_name": "Finish Layer (Exterior)",
+          "material_name": "Gypsum Wall Board",
+          "thickness_mm": 12.7,
+          "is_structural": false
+        },
+        {
+          "function": "Structure",
+          "function_name": "Structural Core",
+          "material_name": "Metal Stud Framing",
+          "thickness_mm": 92.08,
+          "is_structural": true
+        },
+        {
+          "function": "Finish2",
+          "function_name": "Finish Layer (Interior)",
+          "material_name": "Gypsum Wall Board",
+          "thickness_mm": 12.7,
+          "is_structural": false
+        }
+      ],
+      "openings": []
+    },
+    {
+      "wall_id": "wall_04_complex",
+      "label": "Complex Wall - 20ft x 9ft, 1 Door + 2 Windows [Insulated]",
+      "length": 6096.0,
+      "height": 2743.2,
+      "thickness": 92.08,
+      "origin_x": 0.0,
+      "origin_y": 0.0,
+      "origin_z": 0.0,
+      "direction_x": 1.0,
+      "direction_y": 0.0,
+      "revit_parameters": {},
+      "layers": [
+        {
+          "function": "Finish1",
+          "function_name": "Finish Layer (Exterior)",
+          "material_name": "Exterior Cladding",
+          "thickness_mm": 12.7,
+          "is_structural": false
+        },
+        {
+          "function": "Substrate",
+          "function_name": "Substrate",
+          "material_name": "OSB Sheathing",
+          "thickness_mm": 11.1,
+          "is_structural": false
+        },
+        {
+          "function": "Insulation",
+          "function_name": "Insulation / Air Layer",
+          "material_name": "Mineral Wool",
+          "thickness_mm": 38.0,
+          "is_structural": false
+        },
+        {
+          "function": "Structure",
+          "function_name": "Structural Core",
+          "material_name": "Metal Stud Framing",
+          "thickness_mm": 92.08,
+          "is_structural": true
+        },
+        {
+          "function": "Membrane",
+          "function_name": "Membrane / Vapour Barrier",
+          "material_name": "Vapour Barrier",
+          "thickness_mm": 0.5,
+          "is_structural": false
+        },
+        {
+          "function": "Finish2",
+          "function_name": "Finish Layer (Interior)",
+          "material_name": "Gypsum Wall Board",
+          "thickness_mm": 12.7,
+          "is_structural": false
+        }
+      ],
+      "openings": []
+    }
+  ]
+}

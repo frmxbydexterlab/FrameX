@@ -1,0 +1,89 @@
+// ═══════════════════════════════════════════════════════════════════════════
+//  FrameX — Firestore Security Rules
+//  Project: framexdexterlab
+//
+//  Data model:
+//    /companies/{companyId}/projects/{projectId}
+//    /companies/{companyId}/exchange_options/{optId}
+//    /companies/{companyId}/versions/{versionId}
+//    /users/{userId}           ← user profile & companyId binding
+//
+//  Isolation guarantee:
+//    A user can only read/write documents whose companyId matches their own
+//    custom claim token.  Cross-company access is always rejected.
+// ═══════════════════════════════════════════════════════════════════════════
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper: pull companyId from the user's custom token claim ──────────
+    function userCompanyId() {
+      return request.auth.token.companyId;
+    }
+
+    // ── Helper: is the request authenticated at all? ───────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // ── Helper: does the document's companyId match the caller's? ──────────
+    function ownCompany(companyId) {
+      return isSignedIn() && userCompanyId() == companyId;
+    }
+
+    // ── Helper: is the caller the document owner (by UID)? ─────────────────
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  /users/{userId}  — public profile written by auth.js on registration
+    // ──────────────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      // A user can only read/write their own profile document
+      allow read, write: if isOwner(userId);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  /companies/{companyId}/**
+    //  All project data lives under a company namespace.
+    //  Access is gated on the companyId custom claim.
+    // ──────────────────────────────────────────────────────────────────────
+    match /companies/{companyId} {
+      // No direct read/write on the company document itself
+      allow read, write: if false;
+
+      // ── Projects ────────────────────────────────────────────────────────
+      match /projects/{projectId} {
+        allow read, write: if ownCompany(companyId);
+      }
+
+      // ── Exchange Options ─────────────────────────────────────────────────
+      match /exchange_options/{optId} {
+        allow read, write: if ownCompany(companyId);
+      }
+
+      // ── Versions ────────────────────────────────────────────────────────
+      //  Version documents can be large (they include wall JSON payloads).
+      //  Write is only allowed by the company member who owns the exchange.
+      match /versions/{versionId} {
+        allow read:   if ownCompany(companyId);
+        allow create: if ownCompany(companyId)
+                        && request.resource.data.companyId == companyId;
+        allow update: if ownCompany(companyId);
+        allow delete: if ownCompany(companyId);
+      }
+
+      // ── Custom Assemblies ────────────────────────────────────────────────
+      match /custom_assemblies/{assemblyId} {
+        allow read, write: if ownCompany(companyId);
+      }
+    }
+
+    // ── Deny everything else ─────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

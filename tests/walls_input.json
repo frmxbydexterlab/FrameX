@@ -1,0 +1,137 @@
+{
+  "units": "mm",
+  "description": "Exported from Revit \u2014 walls and openings for LGSF framing engine.",
+  "walls": [
+    {
+      "wall_id": "wall_1200219",
+      "label": "Generic - 8\u0022 (ID: 1200219)",
+      "length": 9753.6000000000004,
+      "height": 6096,
+      "thickness": 203.19999999999999,
+      "origin_x": -21726.1224,
+      "origin_y": 11440.3033,
+      "origin_z": 0,
+      "direction_x": 1,
+      "direction_y": 0,
+      "openings": [
+        {
+          "type": "door",
+          "label": "D1",
+          "x_offset": 4481.5100000000002,
+          "width": 1016,
+          "height": 2235.1999999999998,
+          "sill_height": 0,
+          "is_rough_opening": true
+        }
+      ]
+    },
+    {
+      "wall_id": "wall_1200259",
+      "label": "Generic - 8\u0022 (ID: 1200259)",
+      "length": 5252.4200000000001,
+      "height": 6096,
+      "thickness": 203.19999999999999,
+      "origin_x": -11972.5224,
+      "origin_y": 11440.3033,
+      "origin_z": 0,
+      "direction_x": 0.57357599999999997,
+      "direction_y": -0.81915199999999999,
+      "openings": []
+    },
+    {
+      "wall_id": "wall_1200318",
+      "label": "Interior - 4 7/8\u0022 Partition (1-hr) (ID: 1200318)",
+      "length": 4876.8000000000002,
+      "height": 3657.5999999999999,
+      "thickness": 92.079999999999998,
+      "origin_x": -21726.1224,
+      "origin_y": 6563.5033000000003,
+      "origin_z": 0,
+      "direction_x": 0,
+      "direction_y": 1,
+      "openings": []
+    },
+    {
+      "wall_id": "wall_1200352",
+      "label": "Interior - 4 7/8\u0022 Partition (1-hr) (ID: 1200352)",
+      "length": 4876.8000000000002,
+      "height": 3657.5999999999999,
+      "thickness": 92.079999999999998,
+      "origin_x": -26602.922399999999,
+      "origin_y": 6563.5033000000003,
+      "origin_z": 0,
+      "direction_x": 1,
+      "direction_y": 0,
+      "openings": [
+        {
+          "type": "window",
+          "label": "W1",
+          "x_offset": 1974.8499999999999,
+          "width": 927.10000000000002,
+          "height": 1231.9000000000001,
+          "sill_height": 914.39999999999998,
+          "is_rough_opening": true
+        }
+      ]
+    },
+    {
+      "wall_id": "wall_1200382",
+      "label": "Interior - 4 7/8\u0022 Partition (1-hr) (ID: 1200382)",
+      "length": 3657.5999999999999,
+      "height": 3657.5999999999999,
+      "thickness": 92.079999999999998,
+      "origin_x": -26602.922399999999,
+      "origin_y": 2905.9032999999999,
+      "origin_z": 0,
+      "direction_x": 0,
+      "direction_y": 1,
+      "openings": []
+    },
+    {
+      "wall_id": "wall_1200465",
+      "label": "Interior - 6 3/4\u0022 Partition (1-hr) (ID: 1200465)",
+      "length": 13411.200000000001,
+      "height": 3657.5999999999999,
+      "thickness": 139.69999999999999,
+      "origin_x": -26602.922399999999,
+      "origin_y": 2905.9032999999999,
+      "origin_z": 0,
+      "direction_x": 1,
+      "direction_y": 0,
+      "openings": [
+        {
+          "type": "door",
+          "label": "D1",
+          "x_offset": 6329.3599999999997,
+          "width": 1930.4000000000001,
+          "height": 2235.1999999999998,
+          "sill_height": 0,
+          "is_rough_opening": true
+        }
+      ]
+    },
+    {
+      "wall_id": "wall_1200507",
+      "label": "Interior - 6 3/4\u0022 Partition (1-hr) (ID: 1200507)",
+      "length": 5984.7600000000002,
+      "height": 3657.5999999999999,
+      "thickness": 139.69999999999999,
+      "origin_x": -13191.722400000001,
+      "origin_y": 2905.9032999999999,
+      "origin_z": 0,
+      "direction_x": 0.70710700000000004,
+      "direction_y": 0.70710700000000004,
+      "openings": [
+        {
+          "type": "door",
+          "label": "D1",
+          "x_offset": 2334.0500000000002,
+          "width": 1757.6099999999999,
+          "height": 2438.4000000000001,
+          "sill_height": 0,
+          "is_rough_opening": true
+        }
+      ]
+    }
+  ]
+}
