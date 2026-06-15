@@ -95,6 +95,15 @@ const authModule = (() => {
     currentUser = user;
 
     // Sync claims with backend first (especially important for new sign-ups/registrations)
+    if (user.uid !== 'demo' && !user.emailVerified) {
+      if (typeof window.hideLoading === 'function') {
+        window.hideLoading();
+      }
+      _showPanel('panelVerifyEmail');
+      _showLoginOverlay();
+      _setAppVisible(false);
+      return;
+    }
     let token = await user.getIdToken();
     let regCompanyId = localStorage.getItem('registration_companyId');
     if (regCompanyId) {
@@ -256,6 +265,14 @@ const authModule = (() => {
 
     try {
       const cred = await auth.createUserWithEmailAndPassword(email, password);
+
+      // Send verification email immediately
+      try {
+        await cred.user.sendEmailVerification();
+      } catch (emailErr) {
+        console.warn('[auth.js] Failed to send verification email during registration:', emailErr);
+      }
+
       const companyId = _sanitizeCompanyFromEmail(email);
       localStorage.setItem('registration_companyId', companyId);
 
@@ -338,11 +355,52 @@ const authModule = (() => {
     fill.style.backgroundColor = color;
   }
 
+  // ─── Email Verification ───────────────────────────────────────────────────
+  async function checkVerificationStatus() {
+    if (!auth.currentUser) return;
+    _setButtonLoading('btnVerifyChecked', true);
+    _hideError();
+    try {
+      await auth.currentUser.reload();
+      const updatedUser = auth.currentUser;
+      if (updatedUser.emailVerified) {
+        _setButtonLoading('btnVerifyChecked', false);
+        // Email is now verified, proceed with normal signed-in startup
+        await _onSignedIn(updatedUser);
+      } else {
+        _setButtonLoading('btnVerifyChecked', false);
+        _showError('Your email address has not been verified yet. Please check your inbox and click the verification link.');
+      }
+    } catch (err) {
+      _setButtonLoading('btnVerifyChecked', false);
+      _showError(_friendlyError(err));
+    }
+  }
+
+  async function resendVerificationEmail() {
+    if (!auth.currentUser) return;
+    _setButtonLoading('btnResendVerification', true);
+    _hideError();
+    try {
+      await auth.currentUser.sendEmailVerification();
+      _setButtonLoading('btnResendVerification', false);
+      _showError('✓ Verification link sent! Check your inbox.', /* isSuccess */ true);
+    } catch (err) {
+      _setButtonLoading('btnResendVerification', false);
+      _showError(_friendlyError(err));
+    }
+  }
+
   // ─── UI Bindings ─────────────────────────────────────────────────────────
   function _bindUI() {
     _getEl('btnSignIn')?.addEventListener('click', signIn);
     _getEl('btnRegister')?.addEventListener('click', register);
     _getEl('btnSendReset')?.addEventListener('click', sendPasswordReset);
+
+    // Verify email panel handlers
+    _getEl('btnVerifyChecked')?.addEventListener('click', checkVerificationStatus);
+    _getEl('btnResendVerification')?.addEventListener('click', resendVerificationEmail);
+    _getEl('btnVerifyBackToSignIn')?.addEventListener('click', signOut);
 
     _getEl('btnGoToRegister')?.addEventListener('click', () => _showPanel('panelRegister'));
     _getEl('btnGoToSignIn')?.addEventListener('click',   () => _showPanel('panelSignIn'));
@@ -455,7 +513,7 @@ const authModule = (() => {
 
   // ─── UI Helpers ──────────────────────────────────────────────────────────
   function _showPanel(panelId) {
-    ['panelSignIn', 'panelRegister', 'panelReset'].forEach(id => {
+    ['panelSignIn', 'panelRegister', 'panelReset', 'panelVerifyEmail'].forEach(id => {
       const el = _getEl(id);
       if (el) el.style.display = (id === panelId) ? '' : 'none';
     });

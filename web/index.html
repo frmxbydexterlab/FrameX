@@ -161,6 +161,36 @@
         </div>
       </div>
 
+      <!-- ─── EMAIL VERIFICATION PANEL ─── -->
+      <div id="panelVerifyEmail" style="display:none;">
+        <div class="login-header">
+          <h2>Verify your email</h2>
+          <p>We've sent a verification link to your email address. Please click the link in the email to verify your account.</p>
+        </div>
+
+        <div style="margin-bottom: 20px; text-align: center; font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
+          Once you have verified your email, click the button below to gain access to your workspace.
+        </div>
+
+        <button class="login-btn" id="btnVerifyChecked">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          I Have Verified My Email
+        </button>
+
+        <button class="login-btn" id="btnResendVerification" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); color: var(--text-primary); margin-top: 10px; box-shadow: none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+          </svg>
+          Resend Verification Link
+        </button>
+
+        <div class="login-footer">
+          <span class="login-footer-link" id="btnVerifyBackToSignIn">← Back to Sign In</span>
+        </div>
+      </div>
+
     </div><!-- /.login-card -->
   </div><!-- /#loginScreenOverlay -->
   <header id="topbar">
