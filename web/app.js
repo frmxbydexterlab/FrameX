@@ -7,7 +7,7 @@ const getEl = id => document.getElementById(id);
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
   const s = String(str);
-  return s.replace(/[&<>"']/g, function(m) {
+  return s.replace(/[&<>"']/g, function (m) {
     switch (m) {
       case '&': return '&amp;';
       case '<': return '&lt;';
@@ -148,7 +148,8 @@ const state = {
   viewVisibilitySettings: null,
   visibilityProfiles: null,
   activePanel: 'properties',
-  pinnedPanel: 'properties',
+  pinnedLeft: 'properties',   // which panel is pinned on the left side (or null)
+  pinnedRight: null,          // which panel is pinned on the right side (or null)
   currentProjectId: null,
   currentExchangeId: null,
   activeExchangeName: null,
@@ -192,18 +193,18 @@ function cleanFirestoreData(obj) {
 // Until then, all operations resolve immediately (app is behind login overlay).
 class ProjectsDB {
   constructor() {
-    this._user      = null;
+    this._user = null;
     this._companyId = null;
-    this._db        = null;   // Firestore instance
-    this._ready     = false;
+    this._db = null;   // Firestore instance
+    this._ready = false;
   }
 
   // \u2500 Called by auth.js after successful login \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   setUser(user, companyId, db) {
-    this._user      = user;
+    this._user = user;
     this._companyId = companyId;
-    this._db        = db;
-    this._ready     = true;
+    this._db = db;
+    this._ready = true;
     console.log(`[ProjectsDB] Firestore ready — company: ${companyId}`);
   }
 
@@ -487,7 +488,7 @@ function subscribeToExchangeLock(exchangeId) {
 
   try {
     const docRef = projectsDB._col('exchange_options', state.currentProjectCompanyId).doc(String(exchangeId));
-    
+
     let lastKnownLockedAt = null;
     let lastKnownLockedBy = null;
     let lastKnownLockedByName = null;
@@ -656,21 +657,25 @@ function toggleWorkspaceEditState(isReadOnly) {
     }
   }
 
-  // 4. Disable right panel (Configuration System panel) inputs, select elements, and buttons
-  const panelRight = getEl('panel-right');
-  if (panelRight) {
-    const controls = panelRight.querySelectorAll('input, select, button');
-    controls.forEach(el => {
-      el.disabled = isReadOnly;
-      if (isReadOnly) {
-        el.style.opacity = '0.5';
-        el.style.pointerEvents = 'none';
-      } else {
-        el.style.opacity = '1';
-        el.style.pointerEvents = 'auto';
-      }
-    });
-  }
+  // 4. Disable Configuration System and Wall Join panels inputs, select elements, and buttons
+  const pConfig = getEl('panel-config');
+  const pWallJoins = getEl('panel-wall-joins');
+  [pConfig, pWallJoins].forEach(panel => {
+    if (panel) {
+      const controls = panel.querySelectorAll('input, select, button');
+      controls.forEach(el => {
+        if (el.id === 'btnPinConfig' || el.id === 'btnPinWallJoins') return;
+        el.disabled = isReadOnly;
+        if (isReadOnly) {
+          el.style.opacity = '0.5';
+          el.style.pointerEvents = 'none';
+        } else {
+          el.style.opacity = '1';
+          el.style.pointerEvents = 'auto';
+        }
+      });
+    }
+  });
 
   // Properties / Overrides are dynamic and are updated in updateSelectedElementInfo()
 }
@@ -853,16 +858,16 @@ function showVisibilityGraphicsModal() {
   overlay.innerHTML = `
     <div class="vg-modal-container">
       <div class="vg-modal-header">
-        <h2>Visibility/Graphic Overrides for ` + escapeHtml(state.currentView || '2D') + ` View</h2>
+        <h2>Visibility/Graphic Overrides for ${escapeHtml(state.currentView || '2D')} View</h2>
         <button id="btnVgClose" class="vg-close-btn">&times;</button>
       </div>
       <div class="vg-modal-profiles-bar">
         <span class="vg-bar-label">Profile:</span>
         <select id="vgProfileSelect" class="styled-select" style="width: auto; min-width: 150px; padding: 4px 28px 4px 10px; font-size: 12px; margin-right: 8px;">
         </select>
-        <button id="btnVgSaveProfile" class="btn" style="padding: 4px 10px; font-size: 11px;">Update Profile</button>
-        <button id="btnVgSaveAsProfile" class="btn btn-accent" style="padding: 4px 10px; font-size: 11px;">Save As...</button>
-        <button id="btnVgDeleteProfile" class="btn" style="padding: 4px 10px; font-size: 11px; color: #f56565; background: transparent; border: 1px solid var(--border-color);">Delete</button>
+        <button id="btnVgSaveProfile" class="btn btn-config-action" style="padding: 4px 10px; font-size: 11px;">Update Profile</button>
+        <button id="btnVgSaveAsProfile" class="btn btn-config-action btn-accent" style="padding: 4px 10px; font-size: 11px;">Save As...</button>
+        <button id="btnVgDeleteProfile" class="btn btn-config-action" style="padding: 4px 10px; font-size: 11px; color: #f56565; background: transparent; border: 1px solid var(--border-color);">Delete</button>
       </div>
       <div class="vg-modal-body">
         <div class="vg-table-container">
@@ -892,45 +897,48 @@ function showVisibilityGraphicsModal() {
               </tr>
               <tr>
                 <td style="text-align: center;"><input type="checkbox" id="vg_showFramingGlobal" style="cursor: pointer;"></td>
-                <td style="font-weight: 600;">Framing Global</td>
+                <td id="vgFramingGlobalHeaderCell" style="font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                  <span>Framing Global</span>
+                  <span class="vg-chevron" style="display: inline-block; font-size: 10px; transition: transform 0.2s;">▼</span>
+                </td>
               </tr>
-              <tr>
+              <tr class="vg-framing-subrow">
                 <td style="text-align: center;"><input type="checkbox" id="vg_bottom_track" style="cursor: pointer;"></td>
                 <td class="vg-row-sub">Bottom Track</td>
               </tr>
-              <tr>
+              <tr class="vg-framing-subrow">
                 <td style="text-align: center;"><input type="checkbox" id="vg_top_track" style="cursor: pointer;"></td>
                 <td class="vg-row-sub">Top Track</td>
               </tr>
-              <tr>
+              <tr class="vg-framing-subrow">
                 <td style="text-align: center;"><input type="checkbox" id="vg_stud" style="cursor: pointer;"></td>
                 <td class="vg-row-sub">Stud</td>
               </tr>
-              <tr>
+              <tr class="vg-framing-subrow">
                 <td style="text-align: center;"><input type="checkbox" id="vg_end_stud" style="cursor: pointer;"></td>
                 <td class="vg-row-sub">End Stud</td>
               </tr>
-              <tr>
+              <tr class="vg-framing-subrow">
                 <td style="text-align: center;"><input type="checkbox" id="vg_king_stud" style="cursor: pointer;"></td>
                 <td class="vg-row-sub">King Stud</td>
               </tr>
-              <tr>
+              <tr class="vg-framing-subrow">
                 <td style="text-align: center;"><input type="checkbox" id="vg_trimmer_stud" style="cursor: pointer;"></td>
                 <td class="vg-row-sub">Trimmer</td>
               </tr>
-              <tr>
+              <tr class="vg-framing-subrow">
                 <td style="text-align: center;"><input type="checkbox" id="vg_cripple_stud" style="cursor: pointer;"></td>
                 <td class="vg-row-sub">Cripple</td>
               </tr>
-              <tr>
+              <tr class="vg-framing-subrow">
                 <td style="text-align: center;"><input type="checkbox" id="vg_header" style="cursor: pointer;"></td>
                 <td class="vg-row-sub">Header</td>
               </tr>
-              <tr>
+              <tr class="vg-framing-subrow">
                 <td style="text-align: center;"><input type="checkbox" id="vg_sill" style="cursor: pointer;"></td>
                 <td class="vg-row-sub">Sill</td>
               </tr>
-              <tr>
+              <tr class="vg-framing-subrow">
                 <td style="text-align: center;"><input type="checkbox" id="vg_nogging" style="cursor: pointer;"></td>
                 <td class="vg-row-sub">Nogging</td>
               </tr>
@@ -940,13 +948,27 @@ function showVisibilityGraphicsModal() {
       </div>
       <div class="vg-modal-footer">
         <button id="btnVgCancel" class="btn" style="background: transparent; border: 1px solid var(--border-color);">Cancel</button>
-        <button id="btnVgApply" class="btn btn-accent">Apply</button>
         <button id="btnVgOk" class="btn btn-primary">OK</button>
       </div>
     </div>
   `;
 
   document.body.appendChild(overlay);
+
+  const vgFramingGlobalHeaderCell = overlay.querySelector('#vgFramingGlobalHeaderCell');
+  if (vgFramingGlobalHeaderCell) {
+    const chevron = vgFramingGlobalHeaderCell.querySelector('.vg-chevron');
+    const subrows = overlay.querySelectorAll('.vg-framing-subrow');
+    let collapsed = false;
+    vgFramingGlobalHeaderCell.addEventListener('click', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      collapsed = !collapsed;
+      subrows.forEach(r => {
+        r.style.display = collapsed ? 'none' : 'table-row';
+      });
+      chevron.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+    });
+  }
 
   const profileSelect = overlay.querySelector('#vgProfileSelect');
 
@@ -993,6 +1015,16 @@ function showVisibilityGraphicsModal() {
     if (cb) {
       cb.addEventListener('change', () => {
         safeSet(tempSettings, key, cb.checked);
+        if (key === 'showFramingGlobal' && !cb.checked) {
+          const subkeys = ['bottom_track', 'top_track', 'stud', 'end_stud', 'king_stud', 'trimmer_stud', 'cripple_stud', 'header', 'sill', 'nogging'];
+          subkeys.forEach(subk => {
+            const subCb = overlay.querySelector('#vg_' + subk);
+            if (subCb) {
+              subCb.checked = false;
+              safeSet(tempSettings, subk, false);
+            }
+          });
+        }
         let matchedProfile = null;
         for (const [name, profData] of Object.entries(state.visibilityProfiles)) {
           let match = true;
@@ -1052,8 +1084,6 @@ function showVisibilityGraphicsModal() {
       }
     }
   };
-
-  overlay.querySelector('#btnVgApply').addEventListener('click', applyChanges);
 
   overlay.querySelector('#btnVgOk').addEventListener('click', () => {
     applyChanges();
@@ -1232,7 +1262,7 @@ const api = {
     return JSON.stringify(err.detail);
   },
 
-  _handleAuthError: async function(r) {
+  _handleAuthError: async function (r) {
     if (r.status === 401) {
       const user = window.currentUser || (typeof authModule !== 'undefined' ? authModule.getCurrentUser() : null);
       if (user) {
@@ -1280,7 +1310,7 @@ const api = {
     }
   },
 
-  get: async function(u) {
+  get: async function (u) {
     const authHeader = await this._getAuthHeader();
     const r = await fetch(u, { headers: authHeader });
     if (!r.ok) {
@@ -1291,7 +1321,7 @@ const api = {
     return r.json();
   },
 
-  post: async function(u, b) {
+  post: async function (u, b) {
     const authHeader = await this._getAuthHeader();
     const r = await fetch(u, {
       method: 'POST',
@@ -1306,7 +1336,7 @@ const api = {
     return r.json();
   },
 
-  delete: async function(u) {
+  delete: async function (u) {
     const authHeader = await this._getAuthHeader();
     const r = await fetch(u, { method: 'DELETE', headers: authHeader });
     if (!r.ok) {
@@ -1329,115 +1359,112 @@ function getWallLevel(w) {
 }
 
 function updateSidebarLayout() {
-  const pLeft = getEl('panel-left');
-  const pBrowser = getEl('panel-project-browser');
-  const pSettings = getEl('panel-settings');
+  const panelEls = {
+    'properties': getEl('panel-left'),
+    'browser': getEl('panel-project-browser'),
+    'settings': getEl('panel-settings'),
+    'config': getEl('panel-config'),
+    'wall-joins': getEl('panel-wall-joins'),
+  };
   const resizer = getEl('resizer-left');
+  if (!panelEls.properties || !panelEls.browser || !panelEls.settings) return;
 
-  if (!pLeft || !pBrowser || !pSettings) return;
-
-  // Automatically hide profile popover on layout update
+  // Hide profile popover on any layout change
   const profilePopover = getEl('profilePopover');
-  if (profilePopover) {
-    profilePopover.classList.remove('visible');
+  if (profilePopover) profilePopover.classList.remove('visible');
+
+  // ── Clear all panels ──────────────────────────────────────────────
+  Object.values(panelEls).forEach(el => { if (el) el.className = 'sidebar-panel hidden'; });
+
+  // Helper: apply positioning class + side class to a panel element
+  const applyPanel = (panelName, side, mode) => {
+    const el = panelEls[panelName];
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.classList.add(mode);           // 'pinned' or 'floating'
+    if (side === 'right') {
+      el.classList.add('right-sidebar');
+    }
+  };
+
+  // ── Pinned LEFT panel ─────────────────────────────────────────────
+  if (state.pinnedLeft) applyPanel(state.pinnedLeft, 'left', 'pinned');
+
+  // ── Pinned RIGHT panel ────────────────────────────────────────────
+  if (state.pinnedRight) applyPanel(state.pinnedRight, 'right', 'pinned');
+
+  // ── Active (floating) panel ───────────────────────────────────────
+  // Only shown if not already pinned (left or right)
+  if (state.activePanel && state.activePanel !== state.pinnedLeft && state.activePanel !== state.pinnedRight) {
+    // Determine natural floating side: config/wall-joins default right, others left
+    const naturalRight = ['config', 'wall-joins'].includes(state.activePanel);
+    applyPanel(state.activePanel, naturalRight ? 'right' : 'left', 'floating');
   }
 
-  // Clear any existing class modifiers
-  pLeft.className = 'sidebar-panel hidden';
-  pBrowser.className = 'sidebar-panel hidden';
-  pSettings.className = 'sidebar-panel hidden';
+  // ── Pin button indicators ─────────────────────────────────────────
+  const PIN_BUTTONS = {
+    'properties': 'btnPinProperties',
+    'browser': 'btnPinBrowser',
+    'settings': 'btnPinSettings',
+    'config': 'btnPinConfig',
+    'wall-joins': 'btnPinWallJoins',
+  };
+  Object.entries(PIN_BUTTONS).forEach(([panel, btnId]) => {
+    const btn = getEl(btnId);
+    if (!btn) return;
+    const isLeft = state.pinnedLeft === panel;
+    const isRight = state.pinnedRight === panel;
 
-  // Determine active panel visibility
-  if (state.activePanel === 'properties') {
-    pLeft.classList.remove('hidden');
-    if (state.pinnedPanel === 'properties') {
-      pLeft.classList.add('pinned');
-    } else {
-      pLeft.classList.add('floating');
+    let hintEl = btn.querySelector('.pin-hint');
+    if (!hintEl) {
+      hintEl = document.createElement('span');
+      hintEl.className = 'pin-hint';
+      btn.appendChild(hintEl);
     }
-  } else if (state.activePanel === 'browser') {
-    pBrowser.classList.remove('hidden');
-    if (state.pinnedPanel === 'browser') {
-      pBrowser.classList.add('pinned');
-    } else {
-      pBrowser.classList.add('floating');
-    }
-  } else if (state.activePanel === 'settings') {
-    pSettings.classList.remove('hidden');
-    if (state.pinnedPanel === 'settings') {
-      pSettings.classList.add('pinned');
-    } else {
-      pSettings.classList.add('floating');
-    }
-  }
 
-  // Pin indicators on the panels
-  const pinPropBtn = getEl('btnPinProperties');
-  if (pinPropBtn) {
-    if (state.pinnedPanel === 'properties' && state.activePanel === 'properties') {
-      pinPropBtn.classList.add('active');
+    btn.classList.remove('active', 'pin-left', 'pin-right');
+    if (isLeft) {
+      btn.classList.add('active', 'pin-left');
+      btn.title = 'Pinned Left — click to pin right';
+      hintEl.textContent = 'L';
+    } else if (isRight) {
+      btn.classList.add('active', 'pin-right');
+      btn.title = 'Pinned Right — click to unpin';
+      hintEl.textContent = 'R';
     } else {
-      pinPropBtn.classList.remove('active');
+      btn.title = 'Pin Panel (Click to pin Left/Right)';
+      hintEl.textContent = 'L/R';
     }
-  }
+  });
 
-  const pinBrowserBtn = getEl('btnPinBrowser');
-  if (pinBrowserBtn) {
-    if (state.pinnedPanel === 'browser' && state.activePanel === 'browser') {
-      pinBrowserBtn.classList.add('active');
-    } else {
-      pinBrowserBtn.classList.remove('active');
-    }
-  }
-
-  const pinSettingsBtn = getEl('btnPinSettings');
-  if (pinSettingsBtn) {
-    if (state.pinnedPanel === 'settings' && state.activePanel === 'settings') {
-      pinSettingsBtn.classList.add('active');
-    } else {
-      pinSettingsBtn.classList.remove('active');
-    }
-  }
-
-  // Active state on Navigation Rail items
-  const railProp = getEl('railBtnProperties');
-  const railBrowser = getEl('railBtnBrowser');
-  const railSettings = getEl('railBtnSettings');
+  // ── Navigation Rail active states ─────────────────────────────────
+  const railMap = {
+    'properties': 'railBtnProperties',
+    'browser': 'railBtnBrowser',
+    'settings': 'railBtnSettings',
+    'config': 'railBtnConfig',
+    'wall-joins': 'railBtnWallJoins',
+  };
+  Object.entries(railMap).forEach(([panel, railId]) => {
+    const btn = getEl(railId);
+    if (!btn) return;
+    const active = state.activePanel === panel || state.pinnedLeft === panel || state.pinnedRight === panel;
+    btn.classList.toggle('active', active);
+  });
   const railHome = getEl('railBtnHome');
+  if (railHome) railHome.classList.toggle('active', state.currentProjectId === null);
 
-  if (railProp) {
-    if (state.activePanel === 'properties') railProp.classList.add('active');
-    else railProp.classList.remove('active');
-  }
-  if (railBrowser) {
-    if (state.activePanel === 'browser') railBrowser.classList.add('active');
-    else railBrowser.classList.remove('active');
-  }
-  if (railSettings) {
-    if (state.activePanel === 'settings') railSettings.classList.add('active');
-    else railSettings.classList.remove('active');
-  }
-  if (railHome) {
-    if (state.currentProjectId === null) railHome.classList.add('active');
-    else railHome.classList.remove('active');
-  }
-
-  // Show/Hide resizer bar based on pinned state
+  // ── Resizer bars ──────────────────────────────────────────────────
   if (resizer) {
-    if (state.pinnedPanel && state.pinnedPanel === state.activePanel) {
-      resizer.style.display = 'block';
-    } else {
-      resizer.style.display = 'none';
-    }
+    resizer.style.display = state.pinnedLeft ? 'block' : 'none';
+  }
+  const resizerRight = getEl('resizer-right');
+  if (resizerRight) {
+    resizerRight.style.display = state.pinnedRight ? 'block' : 'none';
   }
 
-  // Cancel any floating close timeout when switching or updating layout
   cancelCloseTimeout();
-
-  // Force Three.js and canvases to resize
-  setTimeout(() => {
-    window.dispatchEvent(new Event('resize'));
-  }, 50);
+  setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 50);
 }
 
 function cancelCloseTimeout() {
@@ -1449,8 +1476,9 @@ function cancelCloseTimeout() {
 
 function startCloseTimeout() {
   cancelCloseTimeout();
-  // Only start timeout if there is an active floating panel
-  if (state.activePanel && state.pinnedPanel !== state.activePanel) {
+  // Don't auto-close if the active panel is pinned (left or right)
+  const isPinned = state.pinnedLeft === state.activePanel || state.pinnedRight === state.activePanel;
+  if (state.activePanel && !isPinned) {
     closeTimeout = setTimeout(() => {
       state.activePanel = null;
       updateSidebarLayout();
@@ -1877,6 +1905,7 @@ function updateSelectionActionBar() {
 
   const label = getEl('selectionLabel');
   const btnHide = getEl('btnHideSelected');
+  const btnHideOthers = getEl('btnHideOthers');
   const btnUnhide = getEl('btnUnhideAll');
   const dividers = bar.querySelectorAll('.selection-actions-divider');
   const divider = dividers && dividers.length > 0 ? dividers[0] : null;
@@ -1889,8 +1918,9 @@ function updateSelectionActionBar() {
       label.textContent = `${count} element${count > 1 ? 's' : ''} selected`;
     }
     if (btnHide) btnHide.style.display = 'inline-flex';
+    if (btnHideOthers) btnHideOthers.style.display = 'inline-flex';
     if (divider) divider.style.display = 'block';
-    
+
     if (btnUnhide) {
       btnUnhide.style.display = hasHidden ? 'inline-flex' : 'none';
     }
@@ -1898,12 +1928,98 @@ function updateSelectionActionBar() {
   } else if (hasHidden) {
     if (label) label.style.display = 'none';
     if (btnHide) btnHide.style.display = 'none';
+    if (btnHideOthers) btnHideOthers.style.display = 'none';
     if (divider) divider.style.display = 'none';
     if (btnUnhide) btnUnhide.style.display = 'inline-flex';
     bar.classList.remove('hidden');
   } else {
     bar.classList.add('hidden');
   }
+}
+
+function hideOthers() {
+  const selectedWalls = new Set();
+  if (state.selectedWallIndices) {
+    state.selectedWallIndices.forEach(idx => {
+      const w = safeGet(state.wallsData, idx);
+      if (w) selectedWalls.add(w);
+    });
+  }
+
+  const selectedMems = new Set();
+  if (state.selectedMembers) {
+    state.selectedMembers.forEach(m => selectedMems.add(m));
+  }
+  if (state.selectedMember) {
+    selectedMems.add(state.selectedMember);
+  }
+
+  const selectedOps = new Set();
+  if (state.selectedOpening) {
+    selectedOps.add(state.selectedOpening);
+  }
+
+  const hasSelectedWalls = selectedWalls.size > 0;
+  const hasSelectedMems = selectedMems.size > 0;
+  const hasSelectedOps = selectedOps.size > 0;
+  const hasAnySelection = hasSelectedWalls || hasSelectedMems || hasSelectedOps;
+
+  if (!hasAnySelection) return;
+
+  if (!state.hiddenElements) {
+    state.hiddenElements = new Set();
+  } else {
+    state.hiddenElements.clear();
+  }
+
+  if (state.wallsData) {
+    state.wallsData.forEach((w, i) => {
+      const wallResult = state.framingResult ? safeGet(state.framingResult, i) : null;
+      const wallHasSelectedMember = wallResult && wallResult.members && wallResult.members.some(m => selectedMems.has(m));
+      const wallHasSelectedOpening = w.openings && w.openings.some(op => selectedOps.has(op));
+
+      const wallIsSelected = selectedWalls.has(w);
+      const keepWall = wallIsSelected || wallHasSelectedMember || wallHasSelectedOpening;
+
+      if (!keepWall) {
+        state.hiddenElements.add(w);
+      }
+
+      // Check members
+      if (wallResult && wallResult.members) {
+        wallResult.members.forEach(m => {
+          const keepMember = selectedMems.has(m) || (wallIsSelected && !hasSelectedMems && !hasSelectedOps);
+          if (!keepMember) {
+            state.hiddenElements.add(m);
+          }
+        });
+      }
+
+      // Check openings
+      if (w.openings) {
+        w.openings.forEach(op => {
+          const keepOpening = selectedOps.has(op) || (wallIsSelected && !hasSelectedMems && !hasSelectedOps);
+          if (!keepOpening) {
+            state.hiddenElements.add(op);
+          }
+        });
+      }
+    });
+  }
+
+  // Clear selection after hiding
+  state.selectedMembers = [];
+  state.selectedMember = null;
+  state.selectedWallIndices = [];
+  state.selectedOpening = null;
+
+  updateMemberSummary();
+  updateWallInfo();
+  updateSelectedElementInfo();
+  updateSelectionActionBar();
+  render3DScene();
+  render();
+  if (planCanvas) renderPlan();
 }
 
 // ─── Init ─────────────────────────────────────────────────────────
@@ -2018,6 +2134,10 @@ async function init() {
     if (planCanvas) renderPlan();
   });
 
+  getEl('btnHideOthers')?.addEventListener('click', () => {
+    hideOthers();
+  });
+
   getEl('btnUnhideAll')?.addEventListener('click', () => {
     if (state.hiddenElements) {
       state.hiddenElements.clear();
@@ -2033,59 +2153,88 @@ async function init() {
   // Set default sidebar layout
   updateSidebarLayout();
 
-  // Pin button listeners
-  getEl('btnPinProperties').addEventListener('click', (e) => {
-    e.stopPropagation();
-    cancelCloseTimeout();
-    if (state.pinnedPanel === 'properties') {
-      state.pinnedPanel = null;
-    } else {
-      state.pinnedPanel = 'properties';
-    }
-    updateSidebarLayout();
-  });
-
-  getEl('btnPinBrowser').addEventListener('click', (e) => {
-    e.stopPropagation();
-    cancelCloseTimeout();
-    if (state.pinnedPanel === 'browser') {
-      state.pinnedPanel = null;
-    } else {
-      state.pinnedPanel = 'browser';
-    }
-    updateSidebarLayout();
-  });
-
-  // Navigation Rail destination buttons
-  getEl('railBtnProperties').addEventListener('click', (e) => {
-    e.stopPropagation();
-    cancelCloseTimeout();
-    if (state.activePanel === 'properties') {
-      if (state.pinnedPanel === 'properties') {
-        // Keep open
+  // Pin button listeners — cycles: Left → Right → Unpin → Left ...
+  // Helper that handles the cycle for any panel
+  function handlePinClick(panel) {
+    const isLeft = state.pinnedLeft === panel;
+    const isRight = state.pinnedRight === panel;
+    if (!isLeft && !isRight) {
+      // Not pinned → pin on left by default (user can click again for right)
+      if (state.pinnedLeft && state.pinnedLeft !== panel) {
+        // If left slot is taken by another panel, pin on right instead
+        state.pinnedRight = panel;
+        state.activePanel = panel;
       } else {
-        state.activePanel = null;
+        state.pinnedLeft = panel;
+        state.activePanel = panel;
+      }
+    } else if (isLeft) {
+      // Pinned left → move to right
+      state.pinnedLeft = null;
+      // If right slot is free, pin there; otherwise just unpin
+      if (!state.pinnedRight || state.pinnedRight === panel) {
+        state.pinnedRight = panel;
+      } else {
+        // Right is occupied by a different panel → just unpin completely
+        // (allow a swap: unpin current right, pin this one on right)
+        state.pinnedRight = panel;
+      }
+      state.activePanel = panel;
+    } else {
+      // Pinned right → unpin entirely
+      state.pinnedRight = null;
+      state.activePanel = state.pinnedLeft || null;
+    }
+    updateSidebarLayout();
+  }
+
+  getEl('btnPinProperties').addEventListener('click', (e) => { e.stopPropagation(); cancelCloseTimeout(); handlePinClick('properties'); });
+  getEl('btnPinBrowser').addEventListener('click', (e) => { e.stopPropagation(); cancelCloseTimeout(); handlePinClick('browser'); });
+
+  const btnPinSettings = getEl('btnPinSettings');
+  if (btnPinSettings) btnPinSettings.addEventListener('click', (e) => { e.stopPropagation(); cancelCloseTimeout(); handlePinClick('settings'); });
+
+  const btnPinConfig = getEl('btnPinConfig');
+  if (btnPinConfig) btnPinConfig.addEventListener('click', (e) => { e.stopPropagation(); cancelCloseTimeout(); handlePinClick('config'); });
+
+  const btnPinWallJoins = getEl('btnPinWallJoins');
+  if (btnPinWallJoins) btnPinWallJoins.addEventListener('click', (e) => { e.stopPropagation(); cancelCloseTimeout(); handlePinClick('wall-joins'); });
+
+  // Navigation Rail destination buttons — smart open/close with pinning awareness
+  function handleRailClick(panel) {
+    const isPinned = state.pinnedLeft === panel || state.pinnedRight === panel;
+    if (state.activePanel === panel) {
+      if (isPinned) {
+        // Already pinned — clicking rail does nothing (panel stays visible)
+      } else {
+        state.activePanel = state.pinnedLeft || null;
       }
     } else {
-      state.activePanel = 'properties';
+      state.activePanel = panel;
     }
     updateSidebarLayout();
-  });
+  }
 
-  getEl('railBtnBrowser').addEventListener('click', (e) => {
-    e.stopPropagation();
-    cancelCloseTimeout();
-    if (state.activePanel === 'browser') {
-      if (state.pinnedPanel === 'browser') {
-        // Keep open
-      } else {
-        state.activePanel = null;
+  getEl('railBtnProperties').addEventListener('click', (e) => { e.stopPropagation(); cancelCloseTimeout(); handleRailClick('properties'); });
+  getEl('railBtnBrowser').addEventListener('click', (e) => { e.stopPropagation(); cancelCloseTimeout(); handleRailClick('browser'); });
+
+  const railBtnSettings = getEl('railBtnSettings');
+  if (railBtnSettings) {
+    railBtnSettings.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cancelCloseTimeout();
+      handleRailClick('settings');
+      if (state.activePanel === 'settings' || state.pinnedLeft === 'settings' || state.pinnedRight === 'settings') {
+        renderSettingsPanel();
       }
-    } else {
-      state.activePanel = 'browser';
-    }
-    updateSidebarLayout();
-  });
+    });
+  }
+
+  const railBtnConfig = getEl('railBtnConfig');
+  if (railBtnConfig) railBtnConfig.addEventListener('click', (e) => { e.stopPropagation(); cancelCloseTimeout(); handleRailClick('config'); });
+
+  const railBtnWallJoins = getEl('railBtnWallJoins');
+  if (railBtnWallJoins) railBtnWallJoins.addEventListener('click', (e) => { e.stopPropagation(); cancelCloseTimeout(); handleRailClick('wall-joins'); });
 
 
   // Profile popup toggle
@@ -2114,6 +2263,8 @@ async function init() {
   setupPanelActivitySync(getEl('panel-left'));
   setupPanelActivitySync(getEl('panel-project-browser'));
   setupPanelActivitySync(getEl('panel-settings'));
+  setupPanelActivitySync(getEl('panel-config'));
+  setupPanelActivitySync(getEl('panel-wall-joins'));
 
   getEl('nav-rail').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -2129,9 +2280,16 @@ async function init() {
       profilePopover.classList.remove('visible');
     }
 
-    // Delayed close for active floating panels
-    if (state.activePanel && state.pinnedPanel !== state.activePanel) {
-      const activeEl = state.activePanel === 'properties' ? getEl('panel-left') : getEl('panel-project-browser');
+    // Delayed close for active floating panels (skip if pinned on either side)
+    const isPinned = state.pinnedLeft === state.activePanel || state.pinnedRight === state.activePanel;
+    if (state.activePanel && !isPinned) {
+      let activeEl = null;
+      if (state.activePanel === 'properties') activeEl = getEl('panel-left');
+      else if (state.activePanel === 'browser') activeEl = getEl('panel-project-browser');
+      else if (state.activePanel === 'settings') activeEl = getEl('panel-settings');
+      else if (state.activePanel === 'config') activeEl = getEl('panel-config');
+      else if (state.activePanel === 'wall-joins') activeEl = getEl('panel-wall-joins');
+
       if (activeEl && !activeEl.contains(e.target) && !getEl('nav-rail').contains(e.target)) {
         startCloseTimeout();
       }
@@ -2194,9 +2352,9 @@ async function init() {
         const targetIndices = (state.selectedWallIndices && state.selectedWallIndices.length > 0)
           ? state.selectedWallIndices
           : [state.currentWallIdx];
-          
+
         if (!state.wallConfigNames) state.wallConfigNames = {};
-        
+
         targetIndices.forEach(idx => {
           const w = safeGet(state.wallsData, idx);
           if (w) {
@@ -2313,7 +2471,8 @@ async function init() {
           grids: state.gridsData,
           perWallOverrides: state.perWallOverrides,
           joinOverrides: state.joinOverrides,
-          wallConfigNames: state.wallConfigNames
+          wallConfigNames: state.wallConfigNames,
+          wallGroups: state.wallGroups
         }
       }, targetCid);
 
@@ -2970,17 +3129,20 @@ async function init() {
     updateElevationCursor(null);
   });
 
-  // Resizers logic for horizontal panel sizing
   const resizerLeft = getEl('resizer-left');
   const resizerRight = getEl('resizer-right');
-  const panelLeft = getEl('panel-left');
-  const panelRight = getEl('panel-right');
 
   if (resizerLeft) {
     let startX, startWidth, activePanelEl;
     resizerLeft.addEventListener('mousedown', (e) => {
-      activePanelEl = state.pinnedPanel === 'properties' ? getEl('panel-left') :
-        (state.pinnedPanel === 'browser' ? getEl('panel-project-browser') : null);
+      const panelName = state.pinnedLeft;
+      if (panelName === 'properties') activePanelEl = getEl('panel-left');
+      else if (panelName === 'browser') activePanelEl = getEl('panel-project-browser');
+      else if (panelName === 'settings') activePanelEl = getEl('panel-settings');
+      else if (panelName === 'config') activePanelEl = getEl('panel-config');
+      else if (panelName === 'wall-joins') activePanelEl = getEl('panel-wall-joins');
+      else activePanelEl = null;
+
       if (!activePanelEl) return;
 
       startX = e.clientX;
@@ -3010,20 +3172,30 @@ async function init() {
     });
   }
 
-  if (resizerRight && panelRight) {
-    let startX, startWidth;
+  if (resizerRight) {
+    let startX, startWidth, activePanelEl;
     resizerRight.addEventListener('mousedown', (e) => {
+      const panelName = state.pinnedRight;
+      if (panelName === 'properties') activePanelEl = getEl('panel-left');
+      else if (panelName === 'browser') activePanelEl = getEl('panel-project-browser');
+      else if (panelName === 'settings') activePanelEl = getEl('panel-settings');
+      else if (panelName === 'config') activePanelEl = getEl('panel-config');
+      else if (panelName === 'wall-joins') activePanelEl = getEl('panel-wall-joins');
+      else activePanelEl = null;
+
+      if (!activePanelEl) return;
+
       startX = e.clientX;
-      startWidth = panelRight.getBoundingClientRect().width;
+      startWidth = activePanelEl.getBoundingClientRect().width;
       resizerRight.classList.add('active');
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
 
       const onMouseMove = (moveEvent) => {
-        const deltaX = startX - moveEvent.clientX;
+        const deltaX = startX - moveEvent.clientX; // drag left to grow right sidebar
         const newWidth = Math.max(200, Math.min(800, startWidth + deltaX));
-        panelRight.style.width = newWidth + 'px';
-        panelRight.style.minWidth = newWidth + 'px';
+        activePanelEl.style.width = newWidth + 'px';
+        activePanelEl.style.minWidth = newWidth + 'px';
         window.dispatchEvent(new Event('resize'));
       };
 
@@ -3667,7 +3839,7 @@ async function mergeCustomAssembliesToActiveConfig() {
       else if (a.type === 'king') dictKey = 'custom_kings';
       else if (a.type === 'l_join') dictKey = 'custom_l_joins';
       else if (a.type === 't_join') dictKey = 'custom_t_joins';
-      
+
       if (!state.configRaw[dictKey]) state.configRaw[dictKey] = {};
       state.configRaw[dictKey][a.name] = a.data;
     });
@@ -4042,7 +4214,7 @@ function getParentWallIdx(wall) {
         return wId && String(wId) === baseId;
       });
       if (idx !== -1) return idx;
-      
+
       const idx2 = state.originalWallsData.findIndex(w => {
         const wId = w.wall_id || w.WallId;
         return wId && String(wId) === wallIdStr;
@@ -4056,7 +4228,7 @@ function getParentWallIdx(wall) {
         return wId && String(wId) === baseId;
       });
       if (idx !== -1) return idx;
-      
+
       const idx2 = state.wallsData.findIndex(w => {
         const wId = w.wall_id || w.WallId;
         return wId && String(wId) === wallIdStr;
@@ -4652,22 +4824,22 @@ function getProfileShapeDefault(p) {
   if (fam.includes('ch_stud') || fam.includes('ch stud') || fam.includes('ch-stud') || des.includes('ch')) {
     return 'ch_stud';
   }
-  if (fam.includes('j_runner') || fam.includes('j runner') || fam.includes('j-runner') || 
-      fam.includes('j_track') || fam.includes('j track') || fam.includes('j-track') || 
-      des.includes('jr') || des.includes('j-runner') || des.includes('j-track')) {
+  if (fam.includes('j_runner') || fam.includes('j runner') || fam.includes('j-runner') ||
+    fam.includes('j_track') || fam.includes('j track') || fam.includes('j-track') ||
+    des.includes('jr') || des.includes('j-runner') || des.includes('j-track')) {
     return 'j_runner';
   }
-  if (fam.includes('hat') || fam.includes('furring') || fam.includes('dwc') || 
-      des.includes('fc') || des.includes('hat') || des.includes('furring')) {
+  if (fam.includes('hat') || fam.includes('furring') || fam.includes('dwc') ||
+    des.includes('fc') || des.includes('hat') || des.includes('furring')) {
     return 'hat_channel';
   }
-  if (fam.includes('z_girt') || fam.includes('z girt') || fam.includes('z-girt') || 
-      fam.includes('z_section') || fam.includes('z section') || fam.includes('z-section') || 
-      des.includes('zg') || des.includes('z-girt')) {
+  if (fam.includes('z_girt') || fam.includes('z girt') || fam.includes('z-girt') ||
+    fam.includes('z_section') || fam.includes('z section') || fam.includes('z-section') ||
+    des.includes('zg') || des.includes('z-girt')) {
     return 'z_girt';
   }
-  if (fam.includes('angle') || fam.includes('l-angle') || fam.includes('l_angle') || 
-      des.includes('angle') || des.includes('l-angle') || des.includes('l-header')) {
+  if (fam.includes('angle') || fam.includes('l-angle') || fam.includes('l_angle') ||
+    des.includes('angle') || des.includes('l-angle') || des.includes('l-header')) {
     return 'angle';
   }
   if (p.type === 'track') {
@@ -4682,22 +4854,22 @@ function inferShapeProfile(familyName, designation, type, lip) {
   if (fam.includes('ch_stud') || fam.includes('ch stud') || fam.includes('ch-stud') || des.includes('ch')) {
     return 'ch_stud';
   }
-  if (fam.includes('j_runner') || fam.includes('j runner') || fam.includes('j-runner') || 
-      fam.includes('j_track') || fam.includes('j track') || fam.includes('j-track') || 
-      des.includes('jr') || des.includes('j-runner') || des.includes('j-track')) {
+  if (fam.includes('j_runner') || fam.includes('j runner') || fam.includes('j-runner') ||
+    fam.includes('j_track') || fam.includes('j track') || fam.includes('j-track') ||
+    des.includes('jr') || des.includes('j-runner') || des.includes('j-track')) {
     return 'j_runner';
   }
-  if (fam.includes('hat') || fam.includes('furring') || fam.includes('dwc') || 
-      des.includes('fc') || des.includes('hat') || des.includes('furring')) {
+  if (fam.includes('hat') || fam.includes('furring') || fam.includes('dwc') ||
+    des.includes('fc') || des.includes('hat') || des.includes('furring')) {
     return 'hat_channel';
   }
-  if (fam.includes('z_girt') || fam.includes('z girt') || fam.includes('z-girt') || 
-      fam.includes('z_section') || fam.includes('z section') || fam.includes('z-section') || 
-      des.includes('zg') || des.includes('z-girt')) {
+  if (fam.includes('z_girt') || fam.includes('z girt') || fam.includes('z-girt') ||
+    fam.includes('z_section') || fam.includes('z section') || fam.includes('z-section') ||
+    des.includes('zg') || des.includes('z-girt')) {
     return 'z_girt';
   }
-  if (fam.includes('angle') || fam.includes('l-angle') || fam.includes('l_angle') || 
-      des.includes('angle') || des.includes('l-angle') || des.includes('l-header')) {
+  if (fam.includes('angle') || fam.includes('l-angle') || fam.includes('l_angle') ||
+    des.includes('angle') || des.includes('l-angle') || des.includes('l-header')) {
     return 'angle';
   }
   if (type === 'track' || des.includes('t') || (lip === 0)) {
@@ -5013,7 +5185,7 @@ function renderRevitProfileList() {
   }
 }
 
-window.changeProfileShape = function(event, idx) {
+window.changeProfileShape = function (event, idx) {
   const val = event.target.value;
   const p = safeGet(state.customRevitProfiles, idx);
   if (!p) return;
@@ -5023,7 +5195,7 @@ window.changeProfileShape = function(event, idx) {
   showToast(`Profile ${p.designation} shape updated to ${val.toUpperCase()}`);
   renderRevitProfileList();
   populateQuickSelectDropdowns();
-  
+
   if (state.currentView === '3D') {
     render3DScene();
   } else if (state.currentView === 'Plan') {
@@ -5345,6 +5517,8 @@ async function loadWallData(payload, uploadName) {
   state.wallsData = mappedWalls;
   state.originalWallsData = JSON.parse(JSON.stringify(mappedWalls));
   state.gridsData = payload.grids || payload.Grids || [];
+  state.wallGroups = payload.wallGroups || {};
+  renderGroups();
   state.currentWallIdx = 0;
   state.selectedMember = null;
   state.selectedMembers = [];
@@ -5637,7 +5811,7 @@ function populateRules(cfg) {
   const lSelect = getEl('cfg-l-join-style');
   if (lSelect) {
     const lVal = cfg.l_join_style || 'standard_l';
-    lSelect.innerHTML = 
+    lSelect.innerHTML =
       '<option value="standard_l" ' + (lVal === 'standard_l' || lVal === 'L10' ? 'selected' : '') + '>L10 (Stop at Core Face)</option>' +
       '<option value="L11" ' + (lVal === 'L11' ? 'selected' : '') + '>L11 (Stop at Finish Face)</option>' +
       '<option value="L12" ' + (lVal === 'L12' ? 'selected' : '') + '>L12 (Core Face + Extra Stud)</option>' +
@@ -5651,7 +5825,7 @@ function populateRules(cfg) {
   const tSelect = getEl('cfg-t-join-style');
   if (tSelect) {
     const tVal = cfg.t_join_style || 'T10';
-    tSelect.innerHTML = 
+    tSelect.innerHTML =
       '<option value="T10" ' + (tVal === 'T10' || tVal === 'standard_t' ? 'selected' : '') + '>T10 (Standard)</option>' +
       '<option value="T11" ' + (tVal === 'T11' ? 'selected' : '') + '>T11 (Double Backing Studs)</option>' +
       '<option value="T12" ' + (tVal === 'T12' ? 'selected' : '') + '>T12 (Double Backing + Mirrored Stud)</option>' +
@@ -5665,13 +5839,13 @@ function populateRules(cfg) {
     return '<div class="rule-card">' +
       '<div class="rule-card-label">' + escapeHtml(widthLabel) + '</div>' +
       '<div class="rule-card-grid">' +
-        '<input type="text" value="' + (isLast ? '∞' : escapeHtml(mmToDisplay(r.max_width_mm))) + '" data-mm="' + escapeHtml(r.max_width_mm) + '" class="hr-width" placeholder="Width" ' + (isLast ? 'disabled' : '') + '>' +
-        '<select class="hr-type">' +
-          '<option value="single" ' + (r.header_type === 'single' ? 'selected' : '') + '>Single Track</option>' +
-          '<option value="box" ' + (r.header_type === 'box' ? 'selected' : '') + '>Box Header</option>' +
-          '<option value="built_up" ' + (r.header_type === 'built_up' ? 'selected' : '') + '>Built-up</option>' +
-          cOpts +
-        '</select>' +
+      '<input type="text" value="' + (isLast ? '∞' : escapeHtml(mmToDisplay(r.max_width_mm))) + '" data-mm="' + escapeHtml(r.max_width_mm) + '" class="hr-width" placeholder="Width" ' + (isLast ? 'disabled' : '') + '>' +
+      '<select class="hr-type">' +
+      '<option value="single" ' + (r.header_type === 'single' ? 'selected' : '') + '>Single Track</option>' +
+      '<option value="box" ' + (r.header_type === 'box' ? 'selected' : '') + '>Box Header</option>' +
+      '<option value="built_up" ' + (r.header_type === 'built_up' ? 'selected' : '') + '>Built-up</option>' +
+      cOpts +
+      '</select>' +
       '</div></div>';
   }).join('');
 
@@ -5682,13 +5856,13 @@ function populateRules(cfg) {
     return '<div class="rule-card">' +
       '<div class="rule-card-label">' + escapeHtml(widthLabel) + '</div>' +
       '<div class="rule-card-grid">' +
-        '<input type="text" value="' + (isLast ? '∞' : escapeHtml(mmToDisplay(r.max_width_mm))) + '" data-mm="' + escapeHtml(r.max_width_mm) + '" class="kr-width" placeholder="Width" ' + (isLast ? 'disabled' : '') + '>' +
-        '<select class="kr-type">' +
-          '<option value="single" ' + (r.king_type === 'single' ? 'selected' : '') + '>Single</option>' +
-          '<option value="single_box" ' + (r.king_type === 'single_box' ? 'selected' : '') + '>Single Box</option>' +
-          '<option value="double" ' + (r.king_type === 'double' ? 'selected' : '') + '>Double</option>' +
-          cOpts +
-        '</select>' +
+      '<input type="text" value="' + (isLast ? '∞' : escapeHtml(mmToDisplay(r.max_width_mm))) + '" data-mm="' + escapeHtml(r.max_width_mm) + '" class="kr-width" placeholder="Width" ' + (isLast ? 'disabled' : '') + '>' +
+      '<select class="kr-type">' +
+      '<option value="single" ' + (r.king_type === 'single' ? 'selected' : '') + '>Single</option>' +
+      '<option value="single_box" ' + (r.king_type === 'single_box' ? 'selected' : '') + '>Single Box</option>' +
+      '<option value="double" ' + (r.king_type === 'double' ? 'selected' : '') + '>Double</option>' +
+      cOpts +
+      '</select>' +
       '</div></div>';
   }).join('');
 
@@ -5724,17 +5898,17 @@ function renderAssemblyLibrary() {
     names.forEach(name => {
       const data = safeGet(dict, name);
       const memCount = Array.isArray(data) ? data.length : (data?.members ? data.members.length : 0);
-      const html = 
+      const html =
         '<div style="background: var(--bg-canvas); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">' +
-          '<div>' +
-            '<div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">' + escapeHtml(name) + '</div>' +
-            '<div style="font-size: 11px; color: var(--text-muted);">' + escapeHtml(memCount) + ' member(s)</div>' +
-          '</div>' +
-          '<div style="display: flex; gap: 4px;">' +
-            '<button class="btn-icon" title="Edit" onclick="editAssembly(\'' + escapeHtml(name) + '\', \'' + escapeHtml(type) + '\')" style="background: rgba(255,255,255,0.05); padding: 4px; border-radius: 4px;">✎</button>' +
-            '<button class="btn-icon" title="Duplicate" onclick="duplicateAssembly(\'' + escapeHtml(name) + '\', \'' + escapeHtml(type) + '\')" style="background: rgba(255,255,255,0.05); padding: 4px; border-radius: 4px;">⧉</button>' +
-            '<button class="btn-icon" title="Delete" onclick="deleteAssembly(\'' + escapeHtml(name) + '\', \'' + escapeHtml(type) + '\')" style="background: rgba(255,100,100,0.1); color: #fc8181; padding: 4px; border-radius: 4px;">✕</button>' +
-          '</div>' +
+        '<div>' +
+        '<div style="font-weight: 600; font-size: 13px; color: var(--text-primary);">' + escapeHtml(name) + '</div>' +
+        '<div style="font-size: 11px; color: var(--text-muted);">' + escapeHtml(memCount) + ' member(s)</div>' +
+        '</div>' +
+        '<div style="display: flex; gap: 4px;">' +
+        '<button class="btn-icon" title="Edit" onclick="editAssembly(\'' + escapeHtml(name) + '\', \'' + escapeHtml(type) + '\')" style="background: rgba(255,255,255,0.05); padding: 4px; border-radius: 4px;">✎</button>' +
+        '<button class="btn-icon" title="Duplicate" onclick="duplicateAssembly(\'' + escapeHtml(name) + '\', \'' + escapeHtml(type) + '\')" style="background: rgba(255,255,255,0.05); padding: 4px; border-radius: 4px;">⧉</button>' +
+        '<button class="btn-icon" title="Delete" onclick="deleteAssembly(\'' + escapeHtml(name) + '\', \'' + escapeHtml(type) + '\')" style="background: rgba(255,100,100,0.1); color: #fc8181; padding: 4px; border-radius: 4px;">✕</button>' +
+        '</div>' +
         '</div>';
       listEl.insertAdjacentHTML('beforeend', html);
     });
@@ -6078,7 +6252,7 @@ function updateWallInfo() {
     `;
   }
 
-  html += 
+  html +=
     '<div class="wall-stat"><span class="label">Wall ID</span><span class="value" style="font-size:11px;word-break:break-all">' + escapeHtml(wall.wall_id || input?.wall_id || '—') + '</span></div>' +
     '<div class="wall-stat"><span class="label">Config</span><span class="value" id="wallConfigIndicator" style="font-size:11px;font-weight:600;color:' + escapeHtml(configColor) + '">' + escapeHtml(configLabel) + '</span></div>' +
     '<div class="wall-stat"><span class="label">Length</span><span class="value">' + escapeHtml(mmToDisplay(wall.length_mm)) + '</span></div>' +
@@ -6089,13 +6263,13 @@ function updateWallInfo() {
 
   // Revit coordinates (if available)
   if (input && (input.origin_x || input.origin_y || input.origin_z)) {
-    html += 
-    '<div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border-color);">' +
+    html +=
+      '<div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border-color);">' +
       '<div class="wall-stat"><span class="label" style="color:var(--accent)">Origin X</span><span class="value">' + escapeHtml(mmToDisplay(input.origin_x || 0)) + '</span></div>' +
       '<div class="wall-stat"><span class="label" style="color:var(--accent)">Origin Y</span><span class="value">' + escapeHtml(mmToDisplay(input.origin_y || 0)) + '</span></div>' +
       '<div class="wall-stat"><span class="label" style="color:var(--accent)">Origin Z</span><span class="value">' + escapeHtml(mmToDisplay(input.origin_z || 0)) + '</span></div>' +
       '<div class="wall-stat"><span class="label" style="color:var(--accent)">Direction</span><span class="value">(' + (input.direction_x || 0).toFixed(2) + ', ' + (input.direction_y || 0).toFixed(2) + ')</span></div>' +
-    '</div>';
+      '</div>';
   }
 
   // Opening details
@@ -6104,12 +6278,12 @@ function updateWallInfo() {
     wall.openings.forEach((op, i) => {
       const typeIcon = (op.type === 'door') ? '🚪' : '🪟';
       html +=
-      '<div style="margin-bottom:6px;">' +
+        '<div style="margin-bottom:6px;">' +
         '<div class="wall-stat"><span class="label">' + escapeHtml(typeIcon) + ' ' + escapeHtml(op.label || (op.type === 'door' ? 'Door' : 'Window') + ' ' + (i + 1)) + '</span><span class="value" style="color:var(--text-secondary)">' + escapeHtml(op.type) + '</span></div>' +
         '<div class="wall-stat"><span class="label" style="padding-left:16px;font-size:11px">Size</span><span class="value" style="font-size:11px">' + escapeHtml(mmToDisplay(op.width)) + ' × ' + escapeHtml(mmToDisplay(op.height)) + '</span></div>' +
         '<div class="wall-stat"><span class="label" style="padding-left:16px;font-size:11px">Offset</span><span class="value" style="font-size:11px">' + escapeHtml(mmToDisplay(op.x_offset || op.x_start || 0)) + '</span></div>' +
         (op.sill_height > 0 ? '<div class="wall-stat"><span class="label" style="padding-left:16px;font-size:11px">Sill</span><span class="value" style="font-size:11px">' + escapeHtml(mmToDisplay(op.sill_height)) + '</span></div>' : '') +
-      '</div>';
+        '</div>';
     });
     html += '</div>';
   }
@@ -6168,7 +6342,16 @@ function render() {
     if (getActiveVisibilitySettings().showWallVolume) {
       ctx.fillStyle = cs.getPropertyValue('--canvas-wall-bg'); ctx.fillRect(bx0, by0, bx1 - bx0, by1 - by0);
     }
-    ctx.strokeStyle = cs.getPropertyValue('--border-color'); ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.strokeRect(bx0, by0, bx1 - bx0, by1 - by0); ctx.setLineDash([]);
+    const isWallSelected = state.selectedWallIndices && state.selectedWallIndices.includes(state.currentWallIdx);
+    if (isWallSelected) {
+      ctx.fillStyle = 'rgba(66, 153, 225, 0.15)';
+      ctx.fillRect(bx0, by0, bx1 - bx0, by1 - by0);
+      ctx.strokeStyle = '#3182ce';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(bx0, by0, bx1 - bx0, by1 - by0);
+    } else {
+      ctx.strokeStyle = cs.getPropertyValue('--border-color'); ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.strokeRect(bx0, by0, bx1 - bx0, by1 - by0); ctx.setLineDash([]);
+    }
   }
 
   if (wall.openings) wall.openings.forEach(op => {
@@ -7194,14 +7377,14 @@ function renderAssemblyMembers() {
 
     let targetOptionsX = '';
     if (m.wall === 'continue') {
-      targetOptionsX = 
+      targetOptionsX =
         '<option value="stop_core_center" ' + (m.align_x_target === 'stop_core_center' ? 'selected' : '') + '>Stopped Centerline</option>' +
         '<option value="stop_core_ext" ' + (m.align_x_target === 'stop_core_ext' ? 'selected' : '') + '>Stopped Core Face (Ext/Left)</option>' +
         '<option value="stop_core_int" ' + (m.align_x_target === 'stop_core_int' ? 'selected' : '') + '>Stopped Core Face (Int/Right)</option>' +
         '<option value="stop_finish_ext" ' + (m.align_x_target === 'stop_finish_ext' ? 'selected' : '') + '>Stopped Finish Face (Ext/Left)</option>' +
         '<option value="stop_finish_int" ' + (m.align_x_target === 'stop_finish_int' ? 'selected' : '') + '>Stopped Finish Face (Int/Right)</option>';
     } else {
-      targetOptionsX = 
+      targetOptionsX =
         '<option value="cont_core_face" ' + (m.align_x_target === 'cont_core_face' ? 'selected' : '') + '>Continuing Core Face (Left)</option>' +
         '<option value="cont_core_center" ' + (m.align_x_target === 'cont_core_center' ? 'selected' : '') + '>Continuing Centerline</option>' +
         '<option value="cont_core_int" ' + (m.align_x_target === 'cont_core_int' ? 'selected' : '') + '>Continuing Core Face (Right)</option>' +
@@ -7211,14 +7394,14 @@ function renderAssemblyMembers() {
 
     let targetOptionsY = '';
     if (m.wall === 'continue') {
-      targetOptionsY = 
+      targetOptionsY =
         '<option value="cont_core_center" ' + (m.align_y_target === 'cont_core_center' ? 'selected' : '') + '>Continuing Centerline</option>' +
         '<option value="cont_core_ext" ' + (m.align_y_target === 'cont_core_ext' ? 'selected' : '') + '>Continuing Core Face (Left)</option>' +
         '<option value="cont_core_int" ' + (m.align_y_target === 'cont_core_int' ? 'selected' : '') + '>Continuing Core Face (Right)</option>' +
         '<option value="cont_finish_ext" ' + (m.align_y_target === 'cont_finish_ext' ? 'selected' : '') + '>Continuing Finish Face (Left)</option>' +
         '<option value="cont_finish_int" ' + (m.align_y_target === 'cont_finish_int' ? 'selected' : '') + '>Continuing Finish Face (Right)</option>';
     } else {
-      targetOptionsY = 
+      targetOptionsY =
         '<option value="stop_core_center" ' + (m.align_y_target === 'stop_core_center' ? 'selected' : '') + '>Stopped Centerline</option>' +
         '<option value="stop_core_ext" ' + (m.align_y_target === 'stop_core_ext' ? 'selected' : '') + '>Stopped Core Face (Ext/Left)</option>' +
         '<option value="stop_core_int" ' + (m.align_y_target === 'stop_core_int' ? 'selected' : '') + '>Stopped Core Face (Int/Right)</option>' +
@@ -7256,9 +7439,9 @@ function renderAssemblyMembers() {
             </select>
             <label></label><div></div>
             <label>Depth</label>
-            <input type="text" value="${mmToDisplay(m.depth_mm)}" onchange="updateAssemblyMember(${i}, 'depth_mm', displayToMm(this.value))" style="width:100%;background:var(--bg-input);border:1px solid var(--border-color);color:white;padding:4px;font-family:var(--font-mono)">
+            <input type="text" value="${mmToDisplay(m.depth_mm)}" onchange="updateAssemblyMember(${i}, 'depth_mm', displayToMm(this.value))" style="width:100%;background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-primary);padding:4px;font-family:var(--font-mono)">
             <label>Flange</label>
-            <input type="text" value="${mmToDisplay(m.flange_mm)}" onchange="updateAssemblyMember(${i}, 'flange_mm', displayToMm(this.value))" style="width:100%;background:var(--bg-input);border:1px solid var(--border-color);color:white;padding:4px;font-family:var(--font-mono)">
+            <input type="text" value="${mmToDisplay(m.flange_mm)}" onchange="updateAssemblyMember(${i}, 'flange_mm', displayToMm(this.value))" style="width:100%;background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-primary);padding:4px;font-family:var(--font-mono)">
           ` : ''}
 
           ${m.source === 'revit' ? `
@@ -7299,7 +7482,7 @@ function renderAssemblyMembers() {
                 </div>
                 <div style="display:flex; align-items:center; gap:4px;">
                   <span style="font-size:10px; color:var(--text-muted); width: 65px;">Rel. Offset:</span>
-                  <input type="text" value="${mmToDisplay(m.align_x_offset || 0)}" onchange="updateAssemblyAlignmentOffset(${i}, 'align_x_offset', displayToMm(this.value))" style="flex:1;background:var(--bg-input);border:1px solid var(--border-color);color:white;padding:2px 4px;font-family:var(--font-mono);font-size:11px;">
+                  <input type="text" value="${mmToDisplay(m.align_x_offset || 0)}" onchange="updateAssemblyAlignmentOffset(${i}, 'align_x_offset', displayToMm(this.value))" style="flex:1;background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-primary);padding:2px 4px;font-family:var(--font-mono);font-size:11px;">
                 </div>
               </div>
               
@@ -7319,7 +7502,7 @@ function renderAssemblyMembers() {
                 </div>
                 <div style="display:flex; align-items:center; gap:4px;">
                   <span style="font-size:10px; color:var(--text-muted); width: 65px;">Rel. Offset:</span>
-                  <input type="text" value="${mmToDisplay(m.align_y_offset || 0)}" onchange="updateAssemblyAlignmentOffset(${i}, 'align_y_offset', displayToMm(this.value))" style="flex:1;background:var(--bg-input);border:1px solid var(--border-color);color:white;padding:2px 4px;font-family:var(--font-mono);font-size:11px;">
+                  <input type="text" value="${mmToDisplay(m.align_y_offset || 0)}" onchange="updateAssemblyAlignmentOffset(${i}, 'align_y_offset', displayToMm(this.value))" style="flex:1;background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-primary);padding:2px 4px;font-family:var(--font-mono);font-size:11px;">
                 </div>
               </div>
             </div>
@@ -7328,11 +7511,11 @@ function renderAssemblyMembers() {
             <div style="display:flex; gap:4px; grid-column: span 3;">
               <div style="display:flex; align-items:center; gap:2px; flex:1">
                 <span style="font-size:10px; color:var(--text-muted)">X:</span>
-                <input type="text" placeholder="X" value="${mmToDisplay(m.offset_x || 0)}" onchange="updateAssemblyMember(${i}, 'offset_x', displayToMm(this.value))" style="width:100%;background:var(--bg-input);border:1px solid var(--border-color);color:white;padding:4px;font-family:var(--font-mono)">
+                <input type="text" placeholder="X" value="${mmToDisplay(m.offset_x || 0)}" onchange="updateAssemblyMember(${i}, 'offset_x', displayToMm(this.value))" style="width:100%;background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-primary);padding:4px;font-family:var(--font-mono)">
               </div>
               <div style="display:flex; align-items:center; gap:2px; flex:1">
                 <span style="font-size:10px; color:var(--text-muted)">Y:</span>
-                <input type="text" placeholder="Y" value="${mmToDisplay(m.offset_y || 0)}" onchange="updateAssemblyMember(${i}, 'offset_y', displayToMm(this.value))" style="width:100%;background:var(--bg-input);border:1px solid var(--border-color);color:white;padding:4px;font-family:var(--font-mono)">
+                <input type="text" placeholder="Y" value="${mmToDisplay(m.offset_y || 0)}" onchange="updateAssemblyMember(${i}, 'offset_y', displayToMm(this.value))" style="width:100%;background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-primary);padding:4px;font-family:var(--font-mono)">
               </div>
             </div>
           `}
@@ -7591,7 +7774,7 @@ function renderAssemblyCanvas() {
     ctx.stroke();
 
     ctx.shadowBlur = 0;
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillStyle = isLight ? '#10131a' : 'rgba(255,255,255,0.7)';
     ctx.font = '10px var(--font-mono)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -8132,7 +8315,7 @@ function openJoinManager(joinType, currentValue, onSelectCallback) {
 
       const previewSvg = getJoinPreviewSvg(styleKey);
 
-      card.innerHTML = 
+      card.innerHTML =
         '<div class="join-card-title">' + escapeHtml(meta.title) + '</div>' +
         '<div class="join-card-preview">' + previewSvg + '</div>' +
         '<div class="join-card-desc">' + escapeHtml(meta.desc) + '</div>';
@@ -8327,7 +8510,7 @@ window.onAppUserReady = async function () {
             state.currentProjectCompanyId = navState.currentProjectCompanyId;
             state.activeExchangeName = navState.activeExchangeName;
             state.activeProjectName = navState.activeProjectName;
-            
+
             // Set breadcrumb title so it displays correctly in UI
             const breadcrumbProjectName = getEl('breadcrumb-project-name');
             if (breadcrumbProjectName && navState.activeProjectName) {
@@ -8377,7 +8560,7 @@ window.onAppUserReady = async function () {
           initView = parsed.viewType;
           initParams = parsed;
         }
-      } catch (e) {}
+      } catch (e) { }
     }
     let initHash = '#projects';
     if (initView === 'exchanges') {
@@ -9536,7 +9719,7 @@ function render3DScene() {
   // Material map based on member type colors
   const materials = {};
   for (let type in MEMBER_COLORS) {
-    safeSet(materials, type, new THREE.MeshStandardMaterial({ 
+    safeSet(materials, type, new THREE.MeshStandardMaterial({
       color: new THREE.Color(safeGet(MEMBER_COLORS, type)),
       roughness: 0.5,
       metalness: 0.2,
@@ -10227,14 +10410,44 @@ function render3DScene() {
 
 function toggleSection(id) {
   const el = getEl(id);
-  const toggle = getEl(id.replace('Section', 'Toggle'));
+  if (!el) return;
+
+  let toggleId;
+  if (id.endsWith('Section')) {
+    toggleId = id.replace('Section', 'Toggle');
+  } else if (id === 'configEditor') {
+    toggleId = 'configEditorToggle';
+  } else if (id === 'wallJoinTemplatesContent') {
+    toggleId = 'wallJoinTemplatesContentToggle';
+  } else {
+    toggleId = id + 'Toggle';
+  }
+
+  const toggle = getEl(toggleId);
   const chevron = toggle ? toggle.querySelector('.chevron-icon') : null;
+
+  // Handle flexible panels when collapsed
+  let wrapper = null;
+  if (id === 'configEditor') {
+    wrapper = getEl('configSystemWrapper');
+  } else if (id === 'propertiesSection') {
+    wrapper = getEl('propertiesWrapper');
+  }
+
   if (el.style.display === 'none') {
     el.style.display = '';
     if (chevron) chevron.classList.remove('collapsed');
+    if (wrapper) {
+      wrapper.style.flex = '1';
+      wrapper.style.minHeight = '0';
+    }
   } else {
     el.style.display = 'none';
     if (chevron) chevron.classList.add('collapsed');
+    if (wrapper) {
+      wrapper.style.flex = 'none';
+      wrapper.style.minHeight = '';
+    }
   }
 }
 
@@ -10287,7 +10500,7 @@ function getRevitParamsHtml(input) {
       html += '<div class="wall-stat" style="font-size:11px">' +
         '<span class="label" style="max-width:110px;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtml(k) + '">' + escapeHtml(k) + '</span>' +
         '<span class="value" style="max-width:110px;overflow:hidden;text-overflow:ellipsis;word-break:break-all" title="' + escapeHtml(displayVal) + '">' + escapeHtml(displayVal) + '</span>' +
-      '</div>';
+        '</div>';
     });
   };
 
@@ -10328,7 +10541,7 @@ function addFilterRow() {
   const container = getEl('filterRows');
   const row = document.createElement('div');
   row.className = 'filter-row filter-row-card';
-  row.style.cssText = 'position: relative; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; background: rgba(0,0,0,0.15); margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px;';
+  row.style.cssText = 'position: relative; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; background: var(--bg-input); margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px;';
 
   const params = getAvailableParams();
   const paramOptions = params.map(p => '<option value="' + escapeHtml(p) + '">' + escapeHtml(p) + '</option>').join('');
@@ -10508,11 +10721,22 @@ function clearFilters() {
 
 // Groups are temporary (session-only)
 function loadGroups() {
-  // No loading from localStorage
+  try {
+    const cached = localStorage.getItem('lgsf_wall_groups');
+    if (cached) {
+      state.wallGroups = JSON.parse(cached);
+    }
+  } catch (e) {
+    console.error("Failed to load wall groups from localStorage:", e);
+  }
 }
 
 function saveGroups() {
-  // No saving to localStorage
+  try {
+    localStorage.setItem('lgsf_wall_groups', JSON.stringify(state.wallGroups));
+  } catch (e) {
+    console.error("Failed to save wall groups to localStorage:", e);
+  }
 }
 
 function createGroup() {
@@ -10531,6 +10755,7 @@ function createGroup() {
     configName: null,
   };
 
+  saveGroups();
   renderGroups();
   getEl('groupNameInput').value = '';
 
@@ -10555,6 +10780,7 @@ function createGroup() {
 function deleteGroup(name) {
   if (safeGet(state.wallGroups, name)) {
     safeDelete(state.wallGroups, name);
+    saveGroups();
     renderGroups();
   }
 }
@@ -10675,23 +10901,43 @@ async function selectGroupWalls(groupName) {
   const group = safeGet(state.wallGroups, groupName);
   if (!group) return;
 
-  state.filteredIndices = [...group.wallIndices];
-  getEl('filterCount').textContent = `${group.wallIndices.length}/${state.wallsData?.length || 0}`;
+  const validIndices = group.wallIndices.filter(idx => idx >= 0 && idx < (state.wallsData?.length || 0));
+
+  state.filteredIndices = [...validIndices];
+  state.selectedWallIndices = [...validIndices];
+  state.selectedMember = null;
+  state.selectedMembers = [];
+  state.selectedOpening = null;
+
+  getEl('filterCount').textContent = `${validIndices.length}/${state.wallsData?.length || 0}`;
 
   const sel = getEl('wallSelect');
-  for (let i = 0; i < sel.options.length; i++) {
-    const opt = safeGet(sel.options, i);
-    const isMatch = group.wallIndices.includes(parseInt(opt.value));
-    opt.style.fontWeight = isMatch ? '600' : '';
-    opt.textContent = (isMatch ? '✓ ' : '') + (safeGet(state.wallsData, i)?.label || safeGet(state.wallsData, i)?.wall_id || `Wall ${i}`);
+  if (sel) {
+    for (let i = 0; i < sel.options.length; i++) {
+      const opt = safeGet(sel.options, i);
+      const isMatch = validIndices.includes(parseInt(opt.value));
+      opt.style.fontWeight = isMatch ? '600' : '';
+      opt.textContent = (isMatch ? '✓ ' : '') + (safeGet(state.wallsData, i)?.label || safeGet(state.wallsData, i)?.wall_id || `Wall ${i}`);
+    }
   }
 
-  if (group.wallIndices.length > 0) {
-    state.currentWallIdx = group.wallIndices[0];
-    sel.value = state.currentWallIdx;
+  if (validIndices.length > 0) {
+    state.currentWallIdx = validIndices[0];
+    if (sel) sel.value = state.currentWallIdx;
     await restoreWallConfig(state.currentWallIdx);
-    fitView(); render(); updateMemberSummary(); updateWallInfo();
   }
+
+  fitView();
+  render();
+  render3DScene();
+  if (planCanvas) renderPlan();
+  if (state.currentView === '3D') {
+    enableSelectionBoxForCurrentSelection();
+  }
+  updateMemberSummary();
+  updateWallInfo();
+  updateSelectedElementInfo();
+  updateSelectionActionBar();
 }
 
 function renderGroups() {
@@ -10718,29 +10964,37 @@ function renderGroups() {
     }
   }
 
+  const selectedWallSet = new Set(state.selectedWallIndices || []);
+
   let html = '';
   groups.forEach(([name, g]) => {
     const encoded = encodeURIComponent(name);
+
+    const isSelected = g.wallIndices.length > 0 &&
+                       g.wallIndices.length === selectedWallSet.size &&
+                       g.wallIndices.every(idx => selectedWallSet.has(idx));
 
     // Build options specific to this group to select the active config
     const isCurrent = g.configName === 'Current Panel' || !g.configName;
     const groupConfigOptsHtml = '<option value="__current__"' + (isCurrent ? ' selected' : '') + '>Current Panel</option>' +
       configOpts.map(c => '<option value="' + escapeHtml(c.value) + '"' + (c.value === g.configName ? ' selected' : '') + '>' + escapeHtml(c.text) + '</option>').join('');
 
+    const cardClass = isSelected ? 'group-card selected' : 'group-card';
+
     html +=
-      '<div class="group-card" data-group="' + escapeHtml(encoded) + '" style="margin-bottom:6px;padding:6px 8px;background:var(--bg-input);border:1px solid var(--border-color);border-radius:6px">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
-          '<span class="group-name-click" style="font-size:12px;font-weight:600;color:var(--text-primary);cursor:pointer" title="Click to select walls">' + escapeHtml(name) + '</span>' +
-          '<div style="display:flex;gap:2px;align-items:center">' +
-            '<span class="badge" style="font-size:9px">' + g.wallIndices.length + ' walls</span>' +
-            '<button class="group-delete-btn btn" style="padding:1px 4px;font-size:9px;line-height:1" title="Delete group">✕</button>' +
-          '</div>' +
-        '</div>' +
-        '<div style="display:flex;gap:3px;align-items:center">' +
-          '<select class="styled-select group-config-select" id="groupConfig_' + escapeHtml(encoded) + '" style="flex:1;font-size:10px;padding:2px 3px">' + groupConfigOptsHtml + '</select>' +
-          '<button class="group-apply-btn btn btn-primary" style="padding:2px 8px;font-size:10px;white-space:nowrap">Apply</button>' +
-        '</div>' +
-        (g.configName ? '<div style="margin-top:3px;font-size:9px;color:var(--accent)">✓ ' + escapeHtml(g.configName) + '</div>' : '') +
+      '<div class="' + cardClass + '" data-group="' + escapeHtml(encoded) + '">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+      '<span class="group-name-click" style="font-size:12px;font-weight:600;color:var(--text-primary)" title="Click to select walls">' + escapeHtml(name) + '</span>' +
+      '<div style="display:flex;gap:2px;align-items:center">' +
+      '<span class="badge" style="font-size:9px">' + g.wallIndices.length + ' walls</span>' +
+      '<button class="group-delete-btn btn" style="padding:1px 4px;font-size:9px;line-height:1" title="Delete group">✕</button>' +
+      '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:3px;align-items:center">' +
+      '<select class="styled-select group-config-select" id="groupConfig_' + escapeHtml(encoded) + '" style="flex:1;font-size:10px;padding:2px 3px">' + groupConfigOptsHtml + '</select>' +
+      '<button class="group-apply-btn btn btn-primary" style="padding:2px 8px;font-size:10px;white-space:nowrap">Apply</button>' +
+      '</div>' +
+      (g.configName ? '<div style="margin-top:3px;font-size:9px;color:var(--accent)">✓ ' + escapeHtml(g.configName) + '</div>' : '') +
       '</div>';
   });
   el.innerHTML = html;
@@ -10748,9 +11002,26 @@ function renderGroups() {
   // Attach events via delegation (avoids quoting issues with inline onclick)
   el.querySelectorAll('.group-card').forEach(card => {
     const gName = decodeURIComponent(card.dataset.group);
-    card.querySelector('.group-name-click')?.addEventListener('click', () => selectGroupWalls(gName));
-    card.querySelector('.group-delete-btn')?.addEventListener('click', () => deleteGroup(gName));
-    card.querySelector('.group-apply-btn')?.addEventListener('click', () => applyConfigToGroup(gName));
+    
+    // Add click handler to card itself
+    card.addEventListener('click', (e) => {
+      // If clicked on input/select/button, don't trigger group selection
+      if (e.target.closest('.group-delete-btn') || 
+          e.target.closest('.group-config-select') || 
+          e.target.closest('.group-apply-btn')) {
+        return;
+      }
+      selectGroupWalls(gName);
+    });
+
+    card.querySelector('.group-delete-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteGroup(gName);
+    });
+    card.querySelector('.group-apply-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      applyConfigToGroup(gName);
+    });
   });
 }
 
@@ -11110,7 +11381,7 @@ function drawLocalRect(lx, lz, w_local, d_local, wall, fillColor, strokeColor, l
 
 function drawDetailedProfile(lx, lz, D, F, wall, fillColor, strokeColor, strokeWidth, m) {
   const G = m.gauge_mm || 1.5;
-  
+
   const hasRevit = !!(m.revit_family_name || m.revit_symbol_name);
   const fam = m.revit_family_name || '';
   const sym = m.revit_symbol_name || '';
@@ -11146,7 +11417,7 @@ function drawDetailedProfile(lx, lz, D, F, wall, fillColor, strokeColor, strokeW
     const isCProfile = m.profile === 'C_STUD' || m.type.includes('stud');
     const shapeType = hasRevit ? getMemberShapeProfile(m) : (isCProfile ? 'c_stud' : 'track');
     const L = isCProfile ? (m.lip_mm || 12.7) : 0;
-    
+
     if (shapeType === 'ch_stud') {
       const L_val = L || 12.7;
       localVertices = [
@@ -12633,7 +12904,7 @@ function updatePlanTooltip(m, wallIdx, cx, cy) {
   const wallId = wall?.wall_id || safeGet(state.wallsData, wallIdx)?.wall_id || ('Wall ' + wallIdx);
 
   const len = m.is_vertical ? Math.abs(m.end.y - m.start.y) : Math.abs(m.end.x - m.start.x);
-  el.innerHTML = 
+  el.innerHTML =
     '<div class="tt-label">' + escapeHtml(m.label || m.type) + '</div>' +
     '<div class="tt-row"><span class="tt-key">Wall ID</span><span class="tt-val">' + escapeHtml(wallId) + '</span></div>' +
     '<div class="tt-row"><span class="tt-key">Type</span><span class="tt-val">' + escapeHtml(safeGet(MEMBER_LABELS, m.type) || m.type) + '</span></div>' +
@@ -12664,7 +12935,7 @@ function updatePlanJoinTooltip(j, cx, cy) {
   const styleKey = [j.stopped_wall_id, j.continuing_wall_id].sort().join(':');
   const style = state.joinOverrides[styleKey] || j.style_name || (j.join_type === 'L' ? 'L10' : 'T10');
 
-  el.innerHTML = 
+  el.innerHTML =
     '<div class="tt-label">' + j.join_type + '-Join Marker</div>' +
     '<div class="tt-row"><span class="tt-key">Stopped Wall</span><span class="tt-val">' + escapeHtml(j.stopped_wall_id) + '</span></div>' +
     '<div class="tt-row"><span class="tt-key">Continuing Wall</span><span class="tt-val">' + escapeHtml(j.continuing_wall_id) + '</span></div>' +
@@ -12865,6 +13136,9 @@ function attachSelectionActionsListeners(parentEl) {
 
 function updateSelectedElementInfo() {
   updateSelectionActionBar();
+  if (typeof renderGroups === 'function') {
+    renderGroups();
+  }
   updateWallConfigLabel();
   const el = getEl('propertiesInfo');
   if (!el) return;
@@ -12909,19 +13183,19 @@ function updateSelectedElementInfo() {
     } else {
       styleOptionsHtml +=
         '<optgroup label="L-Join Styles">' +
-          '<option value="L10" ' + (commonStyle === 'L10' ? 'selected' : '') + '>L10 (Stop at Core Face)</option>' +
-          '<option value="L11" ' + (commonStyle === 'L11' ? 'selected' : '') + '>L11 (Stop at Finish Face)</option>' +
-          '<option value="L12" ' + (commonStyle === 'L12' ? 'selected' : '') + '>L12 (Core Face + Extra Stud)</option>' +
-          '<option value="L13" ' + (commonStyle === 'L13' ? 'selected' : '') + '>L13 (Finish Face + Extra Stud)</option>' +
-          '<option value="L14" ' + (commonStyle === 'L14' ? 'selected' : '') + '>L14 (Core Face + Back-to-Back Studs)</option>' +
-          '<option value="L15" ' + (commonStyle === 'L15' ? 'selected' : '') + '>L15 (Rotated Backing Stud)</option>' +
-          customLJoins.map(n => '<option value="' + escapeHtml(n) + '" ' + (commonStyle === n ? 'selected' : '') + '>' + escapeHtml(n) + ' (Custom)</option>').join('') +
+        '<option value="L10" ' + (commonStyle === 'L10' ? 'selected' : '') + '>L10 (Stop at Core Face)</option>' +
+        '<option value="L11" ' + (commonStyle === 'L11' ? 'selected' : '') + '>L11 (Stop at Finish Face)</option>' +
+        '<option value="L12" ' + (commonStyle === 'L12' ? 'selected' : '') + '>L12 (Core Face + Extra Stud)</option>' +
+        '<option value="L13" ' + (commonStyle === 'L13' ? 'selected' : '') + '>L13 (Finish Face + Extra Stud)</option>' +
+        '<option value="L14" ' + (commonStyle === 'L14' ? 'selected' : '') + '>L14 (Core Face + Back-to-Back Studs)</option>' +
+        '<option value="L15" ' + (commonStyle === 'L15' ? 'selected' : '') + '>L15 (Rotated Backing Stud)</option>' +
+        customLJoins.map(n => '<option value="' + escapeHtml(n) + '" ' + (commonStyle === n ? 'selected' : '') + '>' + escapeHtml(n) + ' (Custom)</option>').join('') +
         '</optgroup>' +
         '<optgroup label="T-Join Styles">' +
-          '<option value="T10" ' + (commonStyle === 'T10' || commonStyle === 'standard_t' ? 'selected' : '') + '>T10 (Standard)</option>' +
-          '<option value="T11" ' + (commonStyle === 'T11' ? 'selected' : '') + '>T11 (Double Backing Studs)</option>' +
-          '<option value="T12" ' + (commonStyle === 'T12' ? 'selected' : '') + '>T12 (Double Backing + Mirrored Stud)</option>' +
-          customTJoins.map(n => '<option value="' + escapeHtml(n) + '" ' + (commonStyle === n ? 'selected' : '') + '>' + escapeHtml(n) + ' (Custom)</option>').join('') +
+        '<option value="T10" ' + (commonStyle === 'T10' || commonStyle === 'standard_t' ? 'selected' : '') + '>T10 (Standard)</option>' +
+        '<option value="T11" ' + (commonStyle === 'T11' ? 'selected' : '') + '>T11 (Double Backing Studs)</option>' +
+        '<option value="T12" ' + (commonStyle === 'T12' ? 'selected' : '') + '>T12 (Double Backing + Mirrored Stud)</option>' +
+        customTJoins.map(n => '<option value="' + escapeHtml(n) + '" ' + (commonStyle === n ? 'selected' : '') + '>' + escapeHtml(n) + ' (Custom)</option>').join('') +
         '</optgroup>';
     }
 
@@ -13225,12 +13499,12 @@ function updateSelectedElementInfo() {
       totalLength += len;
       types.add(safeGet(MEMBER_LABELS, m.type) || m.type);
     });
-    el.innerHTML = 
+    el.innerHTML =
       '<div class="properties-sticky-header" style="position: sticky; top: -12px; background: var(--bg-panel); backdrop-filter: blur(12px); margin: -12px -14px 12px -14px; padding: 12px 14px 10px 14px; border-bottom: 1px solid var(--border-color); z-index: 10;">' +
-        '<div class="selected-element-title" style="font-weight:700; font-size: 13px; color: var(--accent); margin-bottom: 8px;">' +
-          'Selected: ' + count + ' Framing Members' +
-        '</div>' +
-        getSelectionActionsHtml() +
+      '<div class="selected-element-title" style="font-weight:700; font-size: 13px; color: var(--accent); margin-bottom: 8px;">' +
+      'Selected: ' + count + ' Framing Members' +
+      '</div>' +
+      getSelectionActionsHtml() +
       '</div>' +
       '<div class="wall-stat"><span class="label">Total Length</span><span class="value">' + escapeHtml(mmToDisplay(totalLength)) + '</span></div>' +
       '<div class="wall-stat"><span class="label">Types</span><span class="value" style="font-size:11px">' + escapeHtml([...types].join(', ')) + '</span></div>';
@@ -13280,12 +13554,12 @@ function updateSelectedElementInfo() {
       const len = m.is_vertical ? Math.abs(m.end.y - m.start.y) : Math.abs(m.end.x - m.start.x);
       const wallId = parentWall?.wall_id || wallInput?.wall_id || `Wall ${parentWallIdx}`;
 
-      el.innerHTML = 
+      el.innerHTML =
         '<div class="properties-sticky-header" style="position: sticky; top: -12px; background: var(--bg-panel); backdrop-filter: blur(12px); margin: -12px -14px 12px -14px; padding: 12px 14px 10px 14px; border-bottom: 1px solid var(--border-color); z-index: 10;">' +
-          '<div class="selected-element-title" style="font-weight:700; font-size: 13px; color: var(--accent); margin-bottom: 8px;">' +
-            'Framing Member: ' + escapeHtml(safeGet(MEMBER_LABELS, m.type) || m.type) +
-          '</div>' +
-          getSelectionActionsHtml() +
+        '<div class="selected-element-title" style="font-weight:700; font-size: 13px; color: var(--accent); margin-bottom: 8px;">' +
+        'Framing Member: ' + escapeHtml(safeGet(MEMBER_LABELS, m.type) || m.type) +
+        '</div>' +
+        getSelectionActionsHtml() +
         '</div>' +
         '<div class="wall-stat"><span class="label">Wall ID</span><span class="value" style="font-size:11px;word-break:break-all">' + escapeHtml(wallId) + '</span></div>' +
         '<div class="wall-stat"><span class="label">Member Label</span><span class="value" style="font-size:11px">' + escapeHtml(m.label || '—') + '</span></div>' +
@@ -13297,16 +13571,16 @@ function updateSelectedElementInfo() {
         '<div class="wall-stat"><span class="label">Rotation</span><span class="value">' + m.rotation + '°</span></div>' +
         (m.FRMX_Comment ? '<div class="wall-stat" style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--border-color);"><span class="label" style="color:#f87171;font-weight:600">FRMX_Comment</span><span class="value" style="color:#f87171;font-weight:600;font-size:11px;text-align:right">' + escapeHtml(m.FRMX_Comment) + '</span></div>' : '') +
         '<div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border-color);">' +
-          '<div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;font-weight:600">Global Start Point</div>' +
-          '<div class="wall-stat"><span class="label">X</span><span class="value">' + escapeHtml(mmToDisplay(startGlobal.x)) + '</span></div>' +
-          '<div class="wall-stat"><span class="label">Y</span><span class="value">' + escapeHtml(mmToDisplay(startGlobal.y)) + '</span></div>' +
-          '<div class="wall-stat"><span class="label">Z</span><span class="value">' + escapeHtml(mmToDisplay(startGlobal.z)) + '</span></div>' +
+        '<div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;font-weight:600">Global Start Point</div>' +
+        '<div class="wall-stat"><span class="label">X</span><span class="value">' + escapeHtml(mmToDisplay(startGlobal.x)) + '</span></div>' +
+        '<div class="wall-stat"><span class="label">Y</span><span class="value">' + escapeHtml(mmToDisplay(startGlobal.y)) + '</span></div>' +
+        '<div class="wall-stat"><span class="label">Z</span><span class="value">' + escapeHtml(mmToDisplay(startGlobal.z)) + '</span></div>' +
         '</div>' +
         '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border-color);">' +
-          '<div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;font-weight:600">Global End Point</div>' +
-          '<div class="wall-stat"><span class="label">X</span><span class="value">' + escapeHtml(mmToDisplay(endGlobal.x)) + '</span></div>' +
-          '<div class="wall-stat"><span class="label">Y</span><span class="value">' + escapeHtml(mmToDisplay(endGlobal.y)) + '</span></div>' +
-          '<div class="wall-stat"><span class="label">Z</span><span class="value">' + escapeHtml(mmToDisplay(endGlobal.z)) + '</span></div>' +
+        '<div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;font-weight:600">Global End Point</div>' +
+        '<div class="wall-stat"><span class="label">X</span><span class="value">' + escapeHtml(mmToDisplay(endGlobal.x)) + '</span></div>' +
+        '<div class="wall-stat"><span class="label">Y</span><span class="value">' + escapeHtml(mmToDisplay(endGlobal.y)) + '</span></div>' +
+        '<div class="wall-stat"><span class="label">Z</span><span class="value">' + escapeHtml(mmToDisplay(endGlobal.z)) + '</span></div>' +
         '</div>';
 
       const revitHtml = getRevitParamsHtml(wallInput);
@@ -13336,12 +13610,12 @@ function updateSelectedElementInfo() {
         totalMembers += wall.members.length;
       }
     });
-    el.innerHTML = 
+    el.innerHTML =
       '<div class="properties-sticky-header" style="position: sticky; top: -12px; background: var(--bg-panel); backdrop-filter: blur(12px); margin: -12px -14px 12px -14px; padding: 12px 14px 10px 14px; border-bottom: 1px solid var(--border-color); z-index: 10;">' +
-        '<div class="selected-element-title" style="font-weight:700; font-size: 13px; color: var(--accent); margin-bottom: 8px;">' +
-          'Selected: ' + count + ' Walls' +
-        '</div>' +
-        getSelectionActionsHtml() +
+      '<div class="selected-element-title" style="font-weight:700; font-size: 13px; color: var(--accent); margin-bottom: 8px;">' +
+      'Selected: ' + count + ' Walls' +
+      '</div>' +
+      getSelectionActionsHtml() +
       '</div>' +
       '<div class="wall-stat"><span class="label">Total Length</span><span class="value">' + escapeHtml(mmToDisplay(totalLength)) + '</span></div>' +
       '<div class="wall-stat"><span class="label">Total Openings</span><span class="value">' + totalOpenings + '</span></div>' +
@@ -13372,12 +13646,12 @@ function updateSelectedElementInfo() {
     const thickness = wall ? (wall.thickness_mm || input.thickness || 0) : (input.thickness || 0);
     const membersCount = wall ? wall.members.length : 0;
 
-    let infoHtml = 
+    let infoHtml =
       '<div class="properties-sticky-header" style="position: sticky; top: -12px; background: var(--bg-panel); backdrop-filter: blur(12px); margin: -12px -14px 12px -14px; padding: 12px 14px 10px 14px; border-bottom: 1px solid var(--border-color); z-index: 10;">' +
-        '<div class="selected-element-title" style="font-weight:700; font-size: 13px; color: var(--accent); margin-bottom: 8px;">' +
-          'Selected Wall: ' + escapeHtml(input.label || input.wall_id || ('Wall ' + wallIdx)) +
-        '</div>' +
-        getSelectionActionsHtml() +
+      '<div class="selected-element-title" style="font-weight:700; font-size: 13px; color: var(--accent); margin-bottom: 8px;">' +
+      'Selected Wall: ' + escapeHtml(input.label || input.wall_id || ('Wall ' + wallIdx)) +
+      '</div>' +
+      getSelectionActionsHtml() +
       '</div>' +
       '<div class="wall-stat"><span class="label">Wall ID</span><span class="value" style="font-size:11px;word-break:break-all">' + escapeHtml(input.wall_id || '—') + '</span></div>' +
       '<div class="wall-stat"><span class="label">Config</span><span class="value" style="font-size:11px;font-weight:600;color:' + escapeHtml(configColor) + '">' + escapeHtml(configLabel) + '</span></div>' +
@@ -13387,11 +13661,11 @@ function updateSelectedElementInfo() {
       '<div class="wall-stat"><span class="label">Members</span><span class="value">' + membersCount + '</span></div>' +
       '<div class="wall-stat"><span class="label">Openings</span><span class="value">' + (input.openings?.length || 0) + '</span></div>' +
       '<div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border-color);">' +
-        '<div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;font-weight:600">Global Origin</div>' +
-        '<div class="wall-stat"><span class="label">Origin X</span><span class="value">' + escapeHtml(mmToDisplay(input.origin_x || 0)) + '</span></div>' +
-        '<div class="wall-stat"><span class="label">Origin Y</span><span class="value">' + escapeHtml(mmToDisplay(input.origin_y || 0)) + '</span></div>' +
-        '<div class="wall-stat"><span class="label">Origin Z</span><span class="value">' + escapeHtml(mmToDisplay(input.origin_z || 0)) + '</span></div>' +
-        '<div class="wall-stat"><span class="label">Direction</span><span class="value">(' + (input.direction_x || 0).toFixed(2) + ', ' + (input.direction_y || 0).toFixed(2) + ')</span></div>' +
+      '<div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;font-weight:600">Global Origin</div>' +
+      '<div class="wall-stat"><span class="label">Origin X</span><span class="value">' + escapeHtml(mmToDisplay(input.origin_x || 0)) + '</span></div>' +
+      '<div class="wall-stat"><span class="label">Origin Y</span><span class="value">' + escapeHtml(mmToDisplay(input.origin_y || 0)) + '</span></div>' +
+      '<div class="wall-stat"><span class="label">Origin Z</span><span class="value">' + escapeHtml(mmToDisplay(input.origin_z || 0)) + '</span></div>' +
+      '<div class="wall-stat"><span class="label">Direction</span><span class="value">(' + (input.direction_x || 0).toFixed(2) + ', ' + (input.direction_y || 0).toFixed(2) + ')</span></div>' +
       '</div>';
 
     const revitHtml = getRevitParamsHtml(input);
@@ -13591,7 +13865,7 @@ function initCompanySettings() {
   const btnOpen = getEl('btnOpenCompanySettings');
   const btnClose = getEl('btnCloseCompanySettingsModal');
   const btnCloseConfirm = getEl('btnConfirmCloseHubSettings');
-  
+
   if (!btnOpen) return;
 
   btnOpen.addEventListener('click', async (e) => {
@@ -13820,37 +14094,6 @@ function initDashboard() {
   // Breadcrumbs Projects link
   getEl('breadcrumb-projects-btn').addEventListener('click', () => {
     showDashboard('projects');
-  });
-
-  // Pin settings panel
-  getEl('btnPinSettings').addEventListener('click', (e) => {
-    e.stopPropagation();
-    cancelCloseTimeout();
-    if (state.pinnedPanel === 'settings') {
-      state.pinnedPanel = null;
-    } else {
-      state.pinnedPanel = 'settings';
-    }
-    updateSidebarLayout();
-  });
-
-  // Settings tab click
-  getEl('railBtnSettings').addEventListener('click', (e) => {
-    e.stopPropagation();
-    cancelCloseTimeout();
-    if (state.activePanel === 'settings') {
-      if (state.pinnedPanel === 'settings') {
-        // Keep open
-      } else {
-        state.activePanel = null;
-      }
-    } else {
-      state.activePanel = 'settings';
-    }
-    updateSidebarLayout();
-    if (state.activePanel === 'settings') {
-      renderSettingsPanel();
-    }
   });
 
   // Back to projects grid
@@ -14149,6 +14392,10 @@ async function showDashboard(viewType) {
   getEl('railBtnProperties').classList.remove('active');
   getEl('railBtnBrowser').classList.remove('active');
   getEl('railBtnSettings').classList.remove('active');
+  const railConfig = getEl('railBtnConfig');
+  if (railConfig) railConfig.classList.remove('active');
+  const railWallJoins = getEl('railBtnWallJoins');
+  if (railWallJoins) railWallJoins.classList.remove('active');
 
   const projectsView = getEl('db-projects-view');
   const exchangeView = getEl('db-exchange-view');
@@ -14195,7 +14442,7 @@ async function renderProjectsList() {
     section.style.gap = '12px';
 
     const isMine = hubId === myCompanyId;
-    
+
     // Header for the hub group
     const header = document.createElement('div');
     header.style.display = 'flex';
@@ -14209,7 +14456,7 @@ async function renderProjectsList() {
       <div style="display:flex; align-items:center; gap:8px;">
         <span style="font-size: 16px; font-weight: 700; color: var(--text-primary); text-align: left;">
           Hub: <span style="color:var(--accent); font-family:var(--font-mono);">${escapeHtml(hubId)}</span>
-          ${isMine ? ' <span style="font-size:11px; padding:2px 6px; background:rgba(72,187,120,0.15); color:#48bb78; border-radius:10px; font-weight:600; margin-left:6px;">Your Company</span>' : ' <span style="font-size:11px; padding:2px 6px; background:rgba(235,104,76,0.15); color:var(--accent); border-radius:10px; font-weight:600; margin-left:6px;">Linked Hub</span>'}
+          ${isMine ? ' <span class="hub-badge hub-badge-mine">Your Company</span>' : ' <span class="hub-badge hub-badge-linked">Linked Hub</span>'}
         </span>
       </div>
     `;
@@ -14253,16 +14500,21 @@ async function renderProjectsList() {
           year: 'numeric', month: 'short', day: 'numeric'
         });
 
-        card.innerHTML = 
+        card.innerHTML =
           '<h3>' + escapeHtml(p.name) + '</h3>' +
           '<p>' + escapeHtml(p.description) + '</p>' +
-          '<button class="db-card-delete-btn" title="Delete Project">✕</button>' +
+          '<button class="db-card-delete-btn" title="Delete Project">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+          '<polyline points="3 6 5 6 21 6"></polyline>' +
+          '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
+          '</svg>' +
+          '</button>' +
           '<div class="db-card-meta">' +
-            '<span class="db-card-badge">' + options.length + ' Exchange Options</span>' +
-            '<div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px; font-size:12px; color:var(--text-secondary);">' +
-              '<span>Created: ' + escapeHtml(dateStr) + '</span>' +
-              '<span>By: ' + escapeHtml(p.createdBy || 'Demo User') + '</span>' +
-            '</div>' +
+          '<span class="db-card-badge">' + options.length + ' Exchange Options</span>' +
+          '<div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px; font-size:12px; color:var(--text-secondary);">' +
+          '<span>Created: ' + escapeHtml(dateStr) + '</span>' +
+          '<span>By: ' + escapeHtml(p.createdBy || 'Demo User') + '</span>' +
+          '</div>' +
           '</div>';
 
         // Click project to drill down
@@ -14354,17 +14606,22 @@ async function renderExchangeOptionsList() {
       }
     }
 
-    card.innerHTML = 
+    card.innerHTML =
       '<h3>' + escapeHtml(o.name) + '</h3>' +
       '<p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 2px;">Active Version: ' + (versions.length > 0 ? ('v' + versions.length) : 'None') + '</p>' +
       '<p style="color: var(--text-secondary); font-size: 12px; margin-bottom: 2px;">Created by: ' + escapeHtml(o.createdBy || 'Demo User') + '</p>' +
-      '<button class="db-card-delete-btn" title="Delete Exchange Option">✕</button>' +
+      '<button class="db-card-delete-btn" title="Delete Exchange Option">' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+      '<polyline points="3 6 5 6 21 6"></polyline>' +
+      '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
+      '</svg>' +
+      '</button>' +
       '<div class="db-card-meta">' +
-        '<span class="db-card-badge">' + versions.length + ' Version' + (versions.length === 1 ? '' : 's') + '</span>' +
-        '<div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px; font-size:12px; color:var(--text-secondary);">' +
-          '<span>Created: ' + escapeHtml(dateStr) + '</span>' +
-          '<span>Last updated by: ' + escapeHtml(lastUpdatedBy) + '</span>' +
-        '</div>' +
+      '<span class="db-card-badge">' + versions.length + ' Version' + (versions.length === 1 ? '' : 's') + '</span>' +
+      '<div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px; font-size:12px; color:var(--text-secondary);">' +
+      '<span>Created: ' + escapeHtml(dateStr) + '</span>' +
+      '<span>Last updated by: ' + escapeHtml(lastUpdatedBy) + '</span>' +
+      '</div>' +
       '</div>';
 
     // Click card to load exchange option
@@ -14539,7 +14796,7 @@ async function renderSettingsPanel() {
       }
     }
 
-    projNameEl.innerHTML = 
+    projNameEl.innerHTML =
       'Project: ' + escapeHtml(state.activeProjectName || "None") + '<br>' +
       'Last updated by: <strong>' + escapeHtml(lastUpdatedBy) + '</strong>';
 
@@ -14561,13 +14818,28 @@ async function renderSettingsPanel() {
         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
       });
 
+      // Calculate scroll distance if name overflows
+      const charWidth = 8;
+      const containerWidth = 180;
+      const textWidth = (v.name || '').length * charWidth;
+      const scrollDist = Math.max(0, textWidth - containerWidth + 20);
+      if (scrollDist > 0) {
+        item.style.setProperty('--scroll-dist', `-${scrollDist}px`);
+        item.classList.add('can-scroll');
+      }
+
       item.innerHTML = `
         <div class="version-info">
-          <span class="version-name">${v.name}</span>
+          <span class="version-name" title="${escapeHtml(v.name || '')}">${escapeHtml(v.name || '')}</span>
           <span class="version-date">${dateStr} • By: ${v.uploadedBy || 'Demo User'}</span>
         </div>
         ${isActive ? '<span class="version-active-badge">Active</span>' : ''}
-        <button class="version-delete-btn" title="Delete Version">✕</button>
+        <button class="version-delete-btn" title="Delete Version">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
       `;
 
       item.addEventListener('click', async (e) => {

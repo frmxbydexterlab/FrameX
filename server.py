@@ -94,6 +94,7 @@ except Exception as e:
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 async def verify_firebase_token(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(_bearer_scheme)
 ) -> Dict[str, Any]:
     """
@@ -117,7 +118,18 @@ async def verify_firebase_token(
     try:
         # clock_skew_seconds absorbs minor clock drift between local machine and Firebase servers
         decoded = firebase_auth.verify_id_token(credentials.credentials, clock_skew_seconds=5)
+        
+        # Enforce email verification on all endpoints except sync-claims
+        if request and request.url.path != "/api/auth/sync-claims":
+            uid = decoded.get("uid")
+            if uid not in ("demo", "dev") and not decoded.get("email_verified"):
+                raise HTTPException(
+                    status_code=403,
+                    detail="Email address not verified. Please verify your email to access the API."
+                )
         return decoded
+    except HTTPException:
+        raise
     except firebase_auth.ExpiredIdTokenError:
         raise HTTPException(status_code=401, detail="Firebase ID token has expired. Please re-authenticate.")
     except firebase_auth.RevokedIdTokenError:

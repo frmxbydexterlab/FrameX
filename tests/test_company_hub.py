@@ -76,7 +76,7 @@ class MockFirestoreClient:
 
 # ─── Test Fixture & Setup ────────────────────────────────────────────────────
 
-mock_token_payload = {"uid": "default_uid", "email": "default@testme.com"}
+mock_token_payload = {"uid": "default_uid", "email": "default@testme.com", "email_verified": True}
 
 def mock_verify_token():
     return mock_token_payload
