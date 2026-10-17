@@ -268,7 +268,11 @@ const authModule = (() => {
 
       // Send verification email immediately
       try {
-        await cred.user.sendEmailVerification();
+        const actionCodeSettings = {
+          url: window.location.origin,
+          handleCodeInApp: false
+        };
+        await cred.user.sendEmailVerification(actionCodeSettings);
       } catch (emailErr) {
         console.warn('[auth.js] Failed to send verification email during registration:', emailErr);
       }
@@ -313,9 +317,13 @@ const authModule = (() => {
     _hideError();
 
     try {
-      await auth.sendPasswordResetEmail(email);
+      const actionCodeSettings = {
+        url: window.location.origin,
+        handleCodeInApp: false
+      };
+      await auth.sendPasswordResetEmail(email, actionCodeSettings);
       _setButtonLoading('btnSendReset', false);
-      _showError('✓ Reset link sent! Check your inbox.', /* isSuccess */ true);
+      _showError('✓ Reset link sent! Check your inbox (or Junk Email for Outlook/company mail).', /* isSuccess */ true);
     } catch (err) {
       _setButtonLoading('btnSendReset', false);
       _showError(_friendlyError(err));
@@ -382,9 +390,13 @@ const authModule = (() => {
     _setButtonLoading('btnResendVerification', true);
     _hideError();
     try {
-      await auth.currentUser.sendEmailVerification();
+      const actionCodeSettings = {
+        url: window.location.origin,
+        handleCodeInApp: false
+      };
+      await auth.currentUser.sendEmailVerification(actionCodeSettings);
       _setButtonLoading('btnResendVerification', false);
-      _showError('✓ Verification link sent! Check your inbox.', /* isSuccess */ true);
+      _showError('✓ Verification link sent! Check your inbox or Junk Email folder.', /* isSuccess */ true);
     } catch (err) {
       _setButtonLoading('btnResendVerification', false);
       _showError(_friendlyError(err));

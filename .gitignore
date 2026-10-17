@@ -16,6 +16,8 @@ revit_import_error.log
 
 # Firebase / Secrets  ← NEVER commit these
 firebase-service-account*.json
+.firebase/
+firebase-debug*.log
 .env
 *.env.*
 
@@ -26,3 +28,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Binaries & Scratch
+*.exe
+scratch/
