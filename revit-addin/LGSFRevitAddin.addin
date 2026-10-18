@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>Dexter Lab - FrameX</Name>
+    <Assembly>C:\Users\RaunakC\.gemini\antigravity\scratch\LGSFRevitAddin\bin\x64\Debug\net48\LGSFRevitAddin.dll</Assembly>
+    <AddInId>F6285785-5B22-4948-B7BC-E6ADCDEA21CA</AddInId>
+    <FullClassName>LGSFRevitAddin.App</FullClassName>
+    <VendorId>LGSF</VendorId>
+    <VendorDescription>LGSF Automation Architecture</VendorDescription>
+  </AddIn>
+</RevitAddIns>

@@ -1,0 +1,5 @@
+,Length##length##inches,Thickness##length##inches,Leg1##length##inches,Leg2##length##inches
+BRC3,3.25,0.0566,1.5,1.5
+BRC3,4.00,0.0566,1.5,1.5
+BRC6,6.00,0.0566,1.5,1.5
+BRC6,8.00,0.0566,1.5,1.5

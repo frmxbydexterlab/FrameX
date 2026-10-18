@@ -1,0 +1,4 @@
+,b##length##inches,d##length##inches
+CS16,0.0566,1.25
+CS18,0.0451,1.25
+CS20,0.0346,1.25

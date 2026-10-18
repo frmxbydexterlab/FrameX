@@ -97,6 +97,14 @@ FrameX/
 │   ├── test_sloped_walls.py      # Pitched roof height calculation tests
 │   ├── test_structural_layer.py  # Layer offset and thickness validation
 │   └── test_company_hub.py       # Multi-tenant organization tests
+├── revit-addin/                  # Autodesk Revit C# .NET Add-in & BIM Integrator
+│   ├── Commands/                 # Revit Ribbon commands (ExportWalls, ImportFraming)
+│   ├── Core/                     # Wall extraction & native Revit FamilyInstance builder
+│   ├── Models/                   # Revit BIM export data schema
+│   ├── Families/                 # Parametric .rfa structural framing families (SSMA C-studs)
+│   ├── installer/                # Pre-compiled 1-click Windows Installer (.exe)
+│   ├── App.cs                    # Revit UI external application
+│   └── LGSFRevitAddin.csproj     # Multi-targeting .NET 8 / .NET Framework 4.8 project
 ├── configs/                      # Regional LGSF standards (US, UK, AUS, IND)
 ├── Dockerfile                    # Production multi-stage container definition
 ├── cloudbuild.yaml               # Google Cloud Build pipeline

@@ -31,4 +31,11 @@ Thumbs.db
 
 # Binaries & Scratch
 *.exe
+!revit-addin/installer/*.exe
 scratch/
+
+# C# / Visual Studio
+bin/
+obj/
+*.user
+*.suo

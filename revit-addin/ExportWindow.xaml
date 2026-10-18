@@ -1,0 +1,181 @@
+<w:Window x:Class="LGSFRevitAddin.ExportWindow"
+        xmlns="clr-namespace:System.Windows.Controls;assembly=PresentationFramework"
+        xmlns:w="clr-namespace:System.Windows;assembly=PresentationFramework"
+        xmlns:shapes="clr-namespace:System.Windows.Shapes;assembly=PresentationFramework"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Export Walls (.wex)" Height="450" Width="480"
+        WindowStartupLocation="CenterScreen"
+        Background="#10131a"
+        Foreground="#e1e2eb"
+        BorderBrush="#32353c"
+        BorderThickness="1"
+        ResizeMode="CanResize"
+        WindowStyle="None"
+        AllowsTransparency="False">
+    
+    <w:Window.Resources>
+        <w:Style TargetType="Button">
+            <w:Setter Property="Background" Value="#007FFF"/>
+            <w:Setter Property="Foreground" Value="White"/>
+            <w:Setter Property="FontWeight" Value="SemiBold"/>
+            <w:Setter Property="Padding" Value="16,8"/>
+            <w:Setter Property="BorderThickness" Value="0"/>
+            <w:Setter Property="Template">
+                <w:Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{w:TemplateBinding Background}" CornerRadius="14" Padding="{w:TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <w:Trigger Property="IsMouseOver" Value="True">
+                                <w:Setter TargetName="border" Property="Background" Value="#005cbc"/>
+                            </w:Trigger>
+                            <w:Trigger Property="IsEnabled" Value="False">
+                                <w:Setter TargetName="border" Property="Background" Value="#32353c"/>
+                                <w:Setter Property="Foreground" Value="#8b91a0"/>
+                            </w:Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </w:Setter.Value>
+            </w:Setter>
+        </w:Style>
+        
+        <w:Style x:Key="SecondaryButton" TargetType="Button">
+            <w:Setter Property="Background" Value="Transparent"/>
+            <w:Setter Property="Foreground" Value="#e1e2eb"/>
+            <w:Setter Property="BorderBrush" Value="#414754"/>
+            <w:Setter Property="BorderThickness" Value="1"/>
+            <w:Setter Property="Padding" Value="16,8"/>
+            <w:Setter Property="Template">
+                <w:Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{w:TemplateBinding Background}" BorderBrush="{w:TemplateBinding BorderBrush}" BorderThickness="{w:TemplateBinding BorderThickness}" CornerRadius="14" Padding="{w:TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <w:Trigger Property="IsMouseOver" Value="True">
+                                <w:Setter TargetName="border" Property="Background" Value="#1d2026"/>
+                                <w:Setter TargetName="border" Property="BorderBrush" Value="#e1e2eb"/>
+                            </w:Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </w:Setter.Value>
+            </w:Setter>
+        </w:Style>
+
+        <w:Style TargetType="TextBox">
+            <w:Setter Property="Background" Value="#0b0e14"/>
+            <w:Setter Property="Foreground" Value="White"/>
+            <w:Setter Property="BorderBrush" Value="#414754"/>
+            <w:Setter Property="BorderThickness" Value="1"/>
+            <w:Setter Property="Padding" Value="10,8"/>
+            <w:Setter Property="CaretBrush" Value="#007FFF"/>
+            <w:Setter Property="Template">
+                <w:Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="border" Background="{w:TemplateBinding Background}" BorderBrush="{w:TemplateBinding BorderBrush}" BorderThickness="{w:TemplateBinding BorderThickness}" CornerRadius="8">
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="false" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <w:Trigger Property="IsFocused" Value="True">
+                                <w:Setter TargetName="border" Property="BorderBrush" Value="#007FFF"/>
+                            </w:Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </w:Setter.Value>
+            </w:Setter>
+        </w:Style>
+    </w:Window.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="50"/> <!-- Titlebar -->
+            <RowDefinition Height="*"/>  <!-- Main Content -->
+            <RowDefinition Height="60"/> <!-- Footer buttons -->
+        </Grid.RowDefinitions>
+        
+        <!-- Header -->
+        <Border Grid.Row="0" Background="#0b0e14" BorderBrush="#32353c" BorderThickness="0,0,0,1" MouseDown="Header_MouseDown">
+            <Grid Margin="16,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                     <shapes:Path Data="M 2 2 H 10 V 22 H 2 Z M 14 2 H 22 V 22 H 14 Z M 6 10 H 18" Stroke="#007FFF" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform" Margin="0,0,8,0"/>
+                    <TextBlock Text="Dexter Lab — Export Walls (.wex)" FontWeight="SemiBold" FontSize="14" Foreground="#e1e2eb" VerticalAlignment="Center"/>
+                </StackPanel>
+                <Button Content="✕" HorizontalAlignment="Right" VerticalAlignment="Center" Background="Transparent" Foreground="#8b91a0" Padding="8,4" FontSize="12" Click="Close_Click">
+                    <Button.Style>
+                        <w:Style TargetType="Button">
+                            <w:Setter Property="Template">
+                                <w:Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="border" Background="Transparent" CornerRadius="4" Padding="{w:TemplateBinding Padding}">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <w:Trigger Property="IsMouseOver" Value="True">
+                                                <w:Setter Property="Foreground" Value="White"/>
+                                            </w:Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </w:Setter.Value>
+                            </w:Setter>
+                        </w:Style>
+                    </Button.Style>
+                </Button>
+            </Grid>
+        </Border>
+        
+        <!-- Content Area -->
+        <Grid Grid.Row="1" Margin="20,16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- Status Card -->
+                <RowDefinition Height="*"/>    <!-- Text input / logs -->
+            </Grid.RowDefinitions>
+            
+            <!-- Status Info Card -->
+            <Border Grid.Row="0" Background="#1d2026" BorderBrush="#32353c" BorderThickness="1" CornerRadius="12" Padding="14" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="Select Walls in Active View" FontWeight="SemiBold" FontSize="13" Foreground="White" Margin="0,0,0,6"/>
+                    <TextBlock Text="Basic walls will be exported to the LGSF Python framing engine. Grids will also be exported automatically if they are visible in the view and selected along with the walls." 
+                               TextWrapping="Wrap" FontSize="11" Foreground="#9499A6" LineHeight="15"/>
+                </StackPanel>
+            </Border>
+            
+            <!-- Selection and Notes form -->
+            <Grid x:Name="gridForm" Grid.Row="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition x:Name="rowDetails" Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="ADDITIONAL EXPORT NOTE (OPTIONAL)" FontSize="10" FontWeight="Bold" Foreground="#8b91a0" Margin="0,0,0,6"/>
+                <TextBox x:Name="txtNotes" Grid.Row="1" MinHeight="60" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Margin="0,0,0,16"/>
+                
+                <TextBlock Grid.Row="2" Text="SELECTION STATUS" FontSize="10" FontWeight="Bold" Foreground="#8b91a0" Margin="0,0,0,6"/>
+                <Border Grid.Row="3" Background="#0b0e14" BorderBrush="#32353c" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,12">
+                    <Grid>
+                        <TextBlock x:Name="lblStatus" Text="No elements selected yet. Click 'Select Elements' to choose walls and grids in Revit." FontSize="11" Foreground="#9499A6" TextWrapping="Wrap"/>
+                    </Grid>
+                </Border>
+                
+                <!-- Export details text box (shows after export succeeds) -->
+                <ScrollViewer x:Name="scrollDetails" Grid.Row="4" Visibility="Collapsed" MinHeight="100" Background="#0b0e14" BorderBrush="#32353c" BorderThickness="1" Padding="8" Margin="0,4,0,0">
+                    <TextBlock x:Name="txtDetails" FontFamily="JetBrains Mono, Consolas" FontSize="11" Foreground="#abc7ff" TextWrapping="Wrap"/>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+        
+        <!-- Footer -->
+        <Border Grid.Row="2" Background="#0b0e14" BorderBrush="#32353c" BorderThickness="0,1,0,0">
+            <Grid Margin="16,0">
+                <Button x:Name="btnSelect" Content="Select Elements" HorizontalAlignment="Left" VerticalAlignment="Center" Width="150" Click="Select_Click"/>
+                
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button x:Name="btnCancel" Content="Cancel" Style="{w:StaticResource SecondaryButton}" Margin="0,0,8,0" Click="Close_Click"/>
+                    <Button x:Name="btnExport" Content="Save &amp; Export" IsEnabled="False" Width="140" Click="Export_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</w:Window>
