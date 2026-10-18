@@ -1,3 +1,8 @@
+# -----------------------------------------------------------------------------
+# Copyright (c) 2026 Dexterlab (Arshad Ali & Raunak Chandak)
+# All Rights Reserved. Proprietary and Confidential.
+# Provided exclusively for Google AI Builder Cup evaluation.
+# -----------------------------------------------------------------------------
 """
 Geometric join detection and wall trimming for LGSF Framing Engine.
 
