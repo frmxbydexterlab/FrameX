@@ -5481,9 +5481,16 @@ async function loadWallData(payload, uploadName) {
   }
 
   // Map: handle both snake_case (from C# JsonPropertyName) and PascalCase
-  const mappedWalls = wallsArray.map(w => ({
+  const mappedWalls = wallsArray.map(w => {
+    let rawLabel = w.label || w.Label || w.wall_id || w.WallId || '';
+    if (typeof rawLabel === 'string') rawLabel = rawLabel.replace(/^DPR\s+/i, '').replace(/\bDPR\s+/g, '');
+    let params = { ...(w.revit_parameters || w.RevitParameters || {}) };
+    if (params['Type Name'] && typeof params['Type Name'] === 'string') {
+      params['Type Name'] = params['Type Name'].replace(/^DPR\s+/i, '').replace(/\bDPR\s+/g, '');
+    }
+    return {
     wall_id: w.wall_id || w.WallId,
-    label: w.label || w.Label || w.wall_id || w.WallId,
+    label: rawLabel,
     length: w.length || w.Length,
     height: w.height || w.Height,
     thickness: w.thickness || w.Thickness || 92.08,
@@ -5496,7 +5503,7 @@ async function loadWallData(payload, uploadName) {
     origin_z: w.origin_z || w.OriginZ || 0,
     direction_x: w.direction_x !== undefined ? w.direction_x : (w.DirectionX !== undefined ? w.DirectionX : 1),
     direction_y: w.direction_y !== undefined ? w.direction_y : (w.DirectionY !== undefined ? w.DirectionY : 0),
-    revit_parameters: w.revit_parameters || w.RevitParameters || {},
+    revit_parameters: params,
     layers: (w.layers || w.Layers || []).map(l => ({
       function: l.function || l.Function || 'Other',
       function_name: l.function_name || l.FunctionName || '',
